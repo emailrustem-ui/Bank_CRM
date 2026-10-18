@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Отчёты{% endblock %}
+{% block page_title %}Отчёты и выгрузки{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Отчёты</h1>
+        <p class="muted">Выгрузки в Excel и сводка по воронке заявок</p>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-label">Компаний в CRM</div>
+        <div class="stat-value">{{ companies_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Заявок всего</div>
+        <div class="stat-value">{{ deals_count }}</div>
+    </div>
+    <div class="stat-card stat-green">
+        <div class="stat-label">Сумма активных заявок</div>
+        <div class="stat-value" style="font-size:22px;">{{ total_active | money }}</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head"><h3>Выгрузки</h3></div>
+    <div class="card-body flex-gap">
+        <a class="btn btn-primary" href="{{ url_for('export_companies') }}">⇩ Компании</a>
+        <a class="btn btn-primary" href="{{ url_for('export_contacts') }}">⇩ Контакты</a>
+        <a class="btn btn-primary" href="{{ url_for('export_deals') }}">⇩ Заявки</a>
+        <a class="btn btn-primary" href="{{ url_for('export_tasks') }}">⇩ Задачи</a>
+        <a class="btn btn-primary" href="{{ url_for('export_products') }}">⇩ Матрица компания × продукт</a>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-head"><h3>Воронка заявок</h3></div>
+    <div class="table-wrap">
+        <table class="table table-sm">
+            <thead>
+                <tr><th>Статус</th><th>Заявок</th><th>Сумма</th></tr>
+            </thead>
+            <tbody>
+                {% for item in pipeline %}
+                    <tr>
+                        <td>{{ item.label }}</td>
+                        <td>{{ item.count }}</td>
+                        <td>{{ item.amount | money }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

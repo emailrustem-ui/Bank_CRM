@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block title %}Заявки{% endblock %}
+{% block page_title %}Заявки{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Заявки</h1>
+        <p class="muted">Воронка сделок: от анкеты до выдачи</p>
+    </div>
+    <div class="flex-gap">
+        <a href="{{ url_for('export_deal_log') }}" class="btn btn-outline">⇩ Журнал статусов</a>
+        <a href="{{ url_for('deals_page', new=1) }}" class="btn btn-primary">＋ Новая заявка</a>
+    </div>
+</div>
+
+<div class="card">
+    <form method="get" class="filter-bar">
+        <select name="status">
+            <option value="">Все статусы</option>
+            {% for key, label in deal_statuses.items() %}
+                <option value="{{ key }}" {% if status == key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-primary" type="submit">Показать</button>
+        <a href="{{ url_for('deals_page') }}" class="btn btn-ghost">Сбросить</a>
+    </form>
+</div>
+
+{% if editing or new_mode %}
+<div class="card mt-4">
+    <div class="card-head">
+        <h3>{{ 'Редактирование заявки' if editing else 'Новая заявка' }}</h3>
+        <a href="{{ url_for('deals_page') }}" class="link">Закрыть</a>
+    </div>
+    <div class="card-body">
+        <form method="post"
+              action="{{ url_for('deal_edit', deal_id=editing.id) if editing else url_for('deal_new') }}"
+              class="form-stack">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-row">
+                <label>Компания
+                    <select name="company_id" required>
+                        <option value="">— выберите —</option>
+                        {% for company in companies %}
+                            <option value="{{ company.id }}"
+                                {% if editing and editing.company_id == company.id %}selected
+                                {% elif pre_company_id == company.id %}selected{% endif %}>
+                                {{ company.display_name }} (ИНН {{ company.inn }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>Продукт
+                    <select name="product_id">
+                        <option value="">— без продукта —</option>
+                        {% for product in products %}
+                            <option value="{{ product.id }}"
+                                {% if editing and editing.product_id == product.id %}selected{% endif %}>
+                                {{ product.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </label>
+            </div>
+
+            <div class="form-row">
+                <label>Сумма, руб. (можно «15 млн»)
+                    <input type="text" name="amount"
+                           value="{{ editing.amount | money | replace(' руб.', '') if editing and editing.amount else '' }}">
+                </label>
+                <label>Срок
+                    <input type="date" name="term_date"
+                           value="{{ editing.term_date.strftime('%Y-%m-%d') if editing and editing.term_date else '' }}">
+                </label>
+            </div>
+
+            <div class="form-row">
+                <label>Статус заявки
+                    <select name="status">
+                        {% for key, label in deal_statuses.items() %}
+                            <option value="{{ key }}"
+                                {% if editing and editing.status == key %}selected
+                                {% elif not editing and key == 'anketa' %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>ФИО аналитика
+                    <input type="text" name="analyst_name"
+                           value="{{ editing.analyst_name if editing else '' }}">
+                </label>
+            </div>
+
+            <div class="form-row">
+                <label>Телефон аналитика
+                    <input type="text" name="analyst_phone"
+                           value="{{ editing.analyst_phone if editing else '' }}">
+                </label>
+                <label>Комментарий
+                    <input type="text" name="comment"
+                           value="{{ editing.comment if editing else '' }}">
+                </label>
+            </div>
+
+            <div class="flex-gap">
+                <button class="btn btn-primary" type="submit">Сохранить заявку</button>
+                <a href="{{ url_for('deals_page') }}" class="btn btn-ghost">Отмена</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="card mt-4">
+    <div class="table-wrap">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Компания</th>
+                    <th>Продукт</th>
+                    <th>Сумма</th>
+                    <th>Срок</th>
+                    <th>Статус</th>
+                    <th>Аналитик</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for deal in deals %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('company_detail', company_id=deal.company_id) }}" class="company-link">
+                                {{ deal.company.display_name }}
+                            </a>
+                            <div class="muted small">ИНН {{ deal.company.inn }}</div>
+                        </td>
+                        <td>{{ deal.product.name if deal.product else '—' }}</td>
+                        <td>{{ deal.amount | money }}</td>
+                        <td class="{% if deal.is_overdue_term %}text-danger{% endif %}">
+                            {{ deal.term_date.strftime('%d.%m.%Y') if deal.term_date else '—' }}
+                        </td>
+                        <td>
+                            <form method="post" action="{{ url_for('deal_status', deal_id=deal.id) }}" class="inline flex-gap">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <select name="status" class="input-sm">
+                                    {% for key, label in deal_statuses.items() %}
+                                        <option value="{{ key }}" {% if deal.status == key %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button class="btn btn-sm btn-outline" type="submit">ОК</button>
+                            </form>
+                        </td>
+                        <td>
+                            {{ deal.analyst_name or '—' }}
+                            {% if deal.analyst_phone %}<div class="muted small">{{ deal.analyst_phone }}</div>{% endif %}
+                        </td>
+                        <td class="text-right">
+                            <a href="{{ url_for('deals_page', edit=deal.id) }}" class="btn btn-sm btn-ghost">Изменить</a>
+                            <form method="post" action="{{ url_for('deal_delete', deal_id=deal.id) }}" class="inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button class="btn btn-sm btn-danger" data-confirm="Удалить заявку?">✕</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7" class="muted">Заявок пока нет.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-head"><h3>Журнал изменений статусов</h3></div>
+
+    {% if status_logs %}
+        <div class="table-wrap">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Компания</th>
+                        <th>Продукт</th>
+                        <th>Изменение</th>
+                        <th>Кто</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in status_logs %}
+                        <tr>
+                            <td class="muted small">{{ log.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                            <td>
+                                <a href="{{ url_for('company_detail', company_id=log.company_id, tab='deals') }}">
+                                    {{ log.company.display_name }}
+                                </a>
+                            </td>
+                            <td>{{ log.deal.product.name if log.deal and log.deal.product else '—' }}</td>
+                            <td>
+                                {% if log.old_status %}
+                                    {{ deal_statuses.get(log.old_status, log.old_status) }} →
+                                {% else %}
+                                    создана →
+                                {% endif %}
+                                <b>{{ deal_statuses.get(log.new_status, log.new_status) }}</b>
+                            </td>
+                            <td class="muted small">{{ log.user.full_name or log.user.username if log.user else 'система' }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-inline">Изменений статусов пока не было.</div>
+    {% endif %}
+</div>
+{% endblock %}

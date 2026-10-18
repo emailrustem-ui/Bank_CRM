@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Продукты и ОКВЭД{% endblock %}
+{% block page_title %}Продукты и ОКВЭД{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Продукты банка</h1>
+        <p class="muted">Справочник допустимых ОКВЭД по программам</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head"><h3>Загрузить справочник ОКВЭД</h3></div>
+    <div class="card-body">
+        <p class="muted">
+            Загрузите файл вида <b>!ОКВЭД от 29.07.xlsx</b>.
+            Каждый лист считается отдельным продуктом.
+            Система найдёт колонки «Код ОКВЭД», «Разрешен/не разрешен» и колонку с условиями.
+            После загрузки все компании будут перепроверены автоматически.
+        </p>
+
+        <form method="post" action="{{ url_for('product_upload') }}"
+              enctype="multipart/form-data" class="filter-bar mt-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="file" name="file" accept=".xlsx,.xlsm" required>
+            <button class="btn btn-primary" type="submit">Загрузить и проверить</button>
+        </form>
+
+        {% if active_version %}
+            <div class="info-box mt-3">
+                Активная версия: <b>{{ active_version.filename }}</b> ·
+                продуктов: {{ active_version.product_count }} ·
+                правил: {{ active_version.rule_count }} ·
+                загружена: {{ active_version.created_at.strftime('%d.%m.%Y %H:%M') }}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-head">
+        <h3>Продукты</h3>
+        <form method="post" action="{{ url_for('products_recheck') }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline">Перепроверить все компании</button>
+        </form>
+    </div>
+
+    <div class="table-wrap">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Продукт</th>
+                    <th>Правил ОКВЭД</th>
+                    <th>Компаний доступно</th>
+                    <th>С условиями</th>
+                    <th>Статус</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('product_detail', product_id=product.id) }}" class="company-link">
+                                {{ product.name }}
+                            </a>
+                        </td>
+                        <td>{{ stats[product.id].rules }}</td>
+                        <td><span class="badge badge-green">{{ stats[product.id].allowed }}</span></td>
+                        <td><span class="badge badge-orange">{{ stats[product.id].conditional }}</span></td>
+                        <td>
+                            {% if product.is_active %}
+                                <span class="badge badge-green">Активен</span>
+                            {% else %}
+                                <span class="badge badge-gray">Выключен</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            <form method="post" action="{{ url_for('product_toggle', product_id=product.id) }}" class="inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button class="btn btn-sm btn-ghost">
+                                    {{ 'Выключить' if product.is_active else 'Включить' }}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6" class="muted">Продуктов пока нет. Загрузите справочник выше.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if versions %}
+<div class="card mt-4">
+    <div class="card-head"><h3>История версий справочника</h3></div>
+    <div class="table-wrap">
+        <table class="table table-sm">
+            <thead>
+                <tr><th>Файл</th><th>Дата загрузки</th><th>Продуктов</th><th>Правил</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for version in versions %}
+                    <tr>
+                        <td>{{ version.filename }}</td>
+                        <td class="small muted">{{ version.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                        <td>{{ version.product_count }}</td>
+                        <td>{{ version.rule_count }}</td>
+                        <td>
+                            {% if version.is_active %}<span class="badge badge-green">Активная</span>{% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

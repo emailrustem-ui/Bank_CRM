@@ -1,0 +1,98 @@
+/* Минимальные кастомные стили поверх Bootstrap 5 */
+
+/* Ссылки в стиле МСП */
+a { color: var(--msp-blue); text-decoration: none; }
+a:hover { color: var(--msp-blue-dark); }
+
+.company-link { font-weight: 600; color: #1a2332 !important; }
+.company-link:hover { color: var(--msp-blue) !important; }
+.email-link { font-weight: 500; }
+
+/* Строка выполненной задачи */
+.row-done td { color: var(--msp-gray); }
+.row-done td:first-child { text-decoration: line-through; }
+
+/* Пагинация */
+.pagination .page-link {
+    color: var(--msp-blue);
+    border-color: var(--msp-border);
+    border-radius: 6px;
+    margin: 0 2px;
+}
+.pagination .page-item.active .page-link {
+    background: var(--msp-blue);
+    border-color: var(--msp-blue);
+}
+
+/* Детали в карточке */
+.detail-list {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 10px 16px;
+    margin: 0;
+}
+.detail-list dt {
+    color: var(--msp-gray);
+    font-size: 12.5px;
+    font-weight: 500;
+}
+.detail-list dd {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 500;
+}
+
+/* Pre-wrap для условий */
+.pre-wrap { white-space: pre-wrap; word-break: break-word; }
+
+/* Чекбокс в строке */
+.check-btn {
+    width: 26px; height: 26px;
+    border: 1px solid var(--msp-border);
+    background: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--msp-success);
+    font-size: 14px;
+}
+.check-btn:hover { background: #E5F5EC; }
+
+/* Inline формы */
+.inline { display: inline-flex; }
+.flex-gap { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* Фильтр-бар */
+.filter-bar {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    padding: 16px 20px;
+}
+.filter-bar .form-control, .filter-bar .form-select { min-width: 180px; }
+
+/* Flow steps (создание компании) */
+.flow-steps { display: flex; flex-direction: column; gap: 12px; }
+.flow-step { display: flex; align-items: center; gap: 11px; font-size: 13.5px; }
+.flow-step span {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--msp-blue-light);
+    color: var(--msp-blue);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; flex-shrink: 0;
+}
+
+/* Var list (шаблоны) */
+.var-list { margin: 10px 0 0; padding-left: 18px; font-size: 12.5px; }
+.var-list li { margin-bottom: 6px; }
+
+/* Progress bar для воронки */
+.progress-thin { height: 6px; background: var(--msp-light); border-radius: 20px; overflow: hidden; }
+.progress-thin .progress-bar { background: var(--msp-blue); border-radius: 20px; }
+
+/* Адаптив деталей */
+@media (max-width: 600px) {
+    .detail-list { grid-template-columns: 1fr; gap: 4px; }
+    .detail-list dd { margin-bottom: 10px; }
+}

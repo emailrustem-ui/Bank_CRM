@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Шаблоны писем{% endblock %}
+{% block page_title %}Шаблоны писем{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Шаблоны писем</h1>
+        <p class="muted">Персонализация через {{ '{% raw %}' }}{{ greeting }}{{ '{% endraw %}' }} и другие переменные</p>
+    </div>
+</div>
+
+<div class="grid-2">
+    <div class="card">
+        <div class="card-head"><h3>Сохранённые шаблоны</h3></div>
+
+        <div class="list">
+            {% for item in templates %}
+                <div class="list-row">
+                    <div class="list-main">
+                        <a href="{{ url_for('template_edit', template_id=item.id) }}">{{ item.name }}</a>
+                        <div class="muted small">{{ item.subject }}</div>
+                    </div>
+                    <div class="list-side">
+                        {% if item.is_default %}<span class="badge badge-green">По умолчанию</span>{% endif %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="empty-inline">Шаблонов нет.</div>
+            {% endfor %}
+        </div>
+
+        <div class="card-body">
+            <div class="info-box">
+                <b>Доступные переменные</b>
+                <ul class="var-list">
+                    <li><code>{% raw %}{{ greeting }}{% endraw %}</code> — Уважаемый / Уважаемая Имя Отчество</li>
+                    <li><code>{% raw %}{{ first_name }}{% endraw %}</code> — имя</li>
+                    <li><code>{% raw %}{{ full_name }}{% endraw %}</code> — ФИО полностью</li>
+                    <li><code>{% raw %}{{ position }}{% endraw %}</code> — должность</li>
+                    <li><code>{% raw %}{{ company_name }}{% endraw %}</code> — название компании</li>
+                    <li><code>{% raw %}{{ inn }}{% endraw %}</code> — ИНН</li>
+                    <li><code>{% raw %}{{ ogrn }}{% endraw %}</code> — ОГРН</li>
+                    <li><code>{% raw %}{{ director }}{% endraw %}</code> — руководитель</li>
+                    <li><code>{% raw %}{{ product }}{% endraw %}</code> — продукт</li>
+                    <li><code>{% raw %}{{ manager }}{% endraw %}</code> — имя менеджера</li>
+                    <li><code>{% raw %}{{ date }}{% endraw %}</code> — текущая дата</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-head">
+            <h3>{{ 'Редактирование шаблона' if selected else 'Новый шаблон' }}</h3>
+        </div>
+
+        <div class="card-body">
+            <form method="post" action="{{ url_for('templates_page') }}" class="form-stack">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="template_id" value="{{ selected.id if selected else '' }}">
+
+                <label>Название
+                    <input type="text" name="name" value="{{ selected.name if selected else '' }}" required>
+                </label>
+
+                <label>Тема
+                    <input type="text" name="subject"
+                           value="{{ selected.subject if selected else 'Финансовые решения для {{ company_name }}' }}">
+                </label>
+
+                <label>Текст письма
+                    <textarea name="body" rows="16">{{ selected.body if selected else '' }}</textarea>
+                </label>
+
+                <label class="checkbox-line">
+                    <input type="checkbox" name="is_default"
+                           {% if selected and selected.is_default %}checked{% endif %}>
+                    Использовать по умолчанию
+                </label>
+
+                <div class="flex-gap">
+                    <button class="btn btn-primary" type="submit">Сохранить шаблон</button>
+
+                    {% if selected %}
+                        <a href="{{ url_for('templates_page') }}" class="btn btn-ghost">Новый</a>
+                    {% endif %}
+                </div>
+            </form>
+
+            {% if selected %}
+                <form method="post" action="{{ url_for('template_delete', template_id=selected.id) }}" class="mt-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-danger btn-sm" data-confirm="Удалить шаблон?">Удалить шаблон</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

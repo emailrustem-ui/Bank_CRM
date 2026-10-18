@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Отчёты{% endblock %}
+{% block page_title %}Отчёты{% endblock %}
+
+{% block content %}
+<style>
+    .rep-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    @media (max-width: 1100px) { .rep-grid { grid-template-columns: repeat(2, 1fr); } }
+    .rep-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+    @media (max-width: 1000px) { .rep-grid2 { grid-template-columns: 1fr; } }
+
+    .rep-card { background: #fff; border: 1px solid #e3e8ef; border-radius: 12px;
+                box-shadow: 0 2px 10px rgba(16,42,77,.05); overflow: hidden; }
+    .rep-card-head { display: flex; align-items: center; justify-content: space-between;
+                     gap: 10px; padding: 14px 18px; border-bottom: 1px solid #e3e8ef; }
+    .rep-card-head h3 { margin: 0; font-size: 15px; font-weight: 650; color: #0b2545; }
+    .rep-card-body { padding: 18px; }
+
+    .rep-kpi { padding: 14px 16px; }
+    .rep-kpi .lbl { font-size: 12px; color: #6b7785; }
+    .rep-kpi .val { font-size: 26px; font-weight: 700; color: #0b2545; margin: 4px 0 2px; letter-spacing: -.5px; }
+    .rep-kpi .sub { font-size: 11.5px; color: #9aa5b1; }
+    .rep-kpi.green { border-top: 3px solid #1a7f4b; }
+    .rep-kpi.orange { border-top: 3px solid #b96a00; }
+    .rep-kpi.red { border-top: 3px solid #c62f38; }
+    .rep-kpi.blue { border-top: 3px solid #1f6feb; }
+
+    .rep-form { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; padding: 16px 18px; }
+    .rep-field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: #6b7785; font-weight: 600; }
+    .rep-input { padding: 8px 10px; border: 1px solid #e3e8ef; border-radius: 8px; font-size: 13px;
+                 font-family: inherit; color: #1c2733; background: #fff; outline: none; }
+    .rep-input:focus { border-color: #1f6feb; box-shadow: 0 0 0 3px rgba(31,111,235,.12); }
+    .rep-input.w220 { width: 220px; }
+    .rep-input.w160 { width: 160px; }
+
+    .rep-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .rep-table th { text-align: left; padding: 9px 14px; background: #fafbfc; color: #6b7785;
+                    font-size: 11px; text-transform: uppercase; letter-spacing: .3px;
+                    border-bottom: 1px solid #e3e8ef; white-space: nowrap; }
+    .rep-table td { padding: 9px 14px; border-bottom: 1px solid #e3e8ef; vertical-align: top; }
+    .rep-table tr:last-child td { border-bottom: none; }
+
+    .rep-bar { height: 8px; background: #eef1f5; border-radius: 20px; overflow: hidden; min-width: 90px; }
+    .rep-bar > div { height: 100%; background: #1f6feb; border-radius: 20px; }
+    .rep-bar.green > div { background: #1a7f4b; }
+
+    .rep-muted { color: #6b7785; font-size: 12px; }
+    .rep-actions { display: flex; gap: 10px; flex-wrap: wrap; padding: 16px 18px; }
+    .rep-note { padding: 10px 18px; border-top: 1px solid #e3e8ef; background: #fafbfc;
+                font-size: 11.5px; color: #9aa5b1; }
+</style>
+
+<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:20px; flex-wrap:wrap;">
+    <div>
+        <h1 style="margin:0 0 6px; font-size:26px;">Отчёты</h1>
+        <div class="rep-muted">Аналитика по заявкам и выгрузки в Excel. Фильтры применяются к экрану и к выгрузкам.</div>
+    </div>
+    {% if filters.company or filters.status or filters.product_id or filters.date_from or filters.date_to %}
+        <a href="{{ url_for('reports_page') }}" class="btn btn-ghost">✕ Сбросить фильтры</a>
+    {% endif %}
+</div>
+
+<!-- ================= ФИЛЬТРЫ ================= -->
+<div class="rep-card" style="margin-bottom:20px;">
+    <div class="rep-card-head"><h3>Фильтры</h3></div>
+    <form method="get" action="{{ url_for('reports_page') }}" class="rep-form">
+        <label class="rep-field">Компания / ИНН
+            <input class="rep-input w220" type="text" name="company"
+                   value="{{ filters.company or '' }}" placeholder="Название или ИНН">
+        </label>
+        <label class="rep-field">Статус заявки
+            <select class="rep-input w160" name="status">
+                <option value="">Все статусы</option>
+                {% for key, label in deal_statuses.items() %}
+                    <option value="{{ key }}" {% if filters.status == key %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label class="rep-field">Период с
+            <input class="rep-input" type="date" name="date_from" value="{{ filters.date_from or '' }}">
+        </label>
+        <label class="rep-field">по
+            <input class="rep-input" type="date" name="date_to" value="{{ filters.date_to or '' }}">
+        </label>
+        <button class="btn btn-primary" type="submit">Применить</button>
+        <a class="btn btn-ghost" href="{{ url_for('reports_page') }}">Сбросить</a>
+    </form>
+</div>
+
+<!-- ================= KPI ================= -->
+<div class="rep-grid" style="margin-bottom:20px;">
+    <div class="rep-card rep-kpi blue">
+        <div class="lbl">Заявок в выборке</div>
+        <div class="val">{{ total_deals }}</div>
+        <div class="sub">на сумму {{ total_amount | money }}</div>
+    </div>
+    <div class="rep-card rep-kpi orange">
+        <div class="lbl">Активная сумма</div>
+        <div class="val">{{ active_amount | money }}</div>
+        <div class="sub">заявки не в финальном статусе</div>
+    </div>
+    <div class="rep-card rep-kpi green">
+        <div class="lbl">Компаний в выборке</div>
+        <div class="val">{{ companies_count }}</div>
+        <div class="sub">по фильтру компании/ИНН</div>
+    </div>
+</div>
+
+<div class="rep-grid2" style="margin-bottom:20px;">
+    <!-- ================= ВОРОНКА ================= -->
+    <div class="rep-card">
+        <div class="rep-card-head"><h3>Воронка заявок</h3><span class="rep-muted">{{ total_deals }} шт.</span></div>
+        <table class="rep-table">
+            <thead>
+                <tr><th>Статус</th><th style="width:34%">Доля</th><th>Заявок</th><th>Сумма</th></tr>
+            </thead>
+            <tbody>
+                {% for item in funnel %}
+                    <tr>
+                        <td>{{ item.label }}</td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div class="rep-bar" style="flex:1"><div style="width:{{ item.conversion }}%"></div></div>
+                                <span class="rep-muted" style="width:48px; text-align:right;">{{ item.conversion }}%</span>
+                            </div>
+                        </td>
+                        <td>{{ item.count }}</td>
+                        <td class="rep-muted">{{ item.amount | money }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ================= ТОП ПРОДУКТОВ ================= -->
+    <div class="rep-card">
+        <div class="rep-card-head"><h3>Топ продуктов по сумме заявок</h3></div>
+        <table class="rep-table">
+            <thead><tr><th>Продукт</th><th>Заявок</th><th>Сумма</th></tr></thead>
+            <tbody>
+                {% for name, rec in top_products %}
+                    <tr>
+                        <td>{{ name }}</td>
+                        <td>{{ rec.count }}</td>
+                        <td class="rep-muted">{{ rec.amount | money }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="3" class="rep-muted">Нет данных по выбранным фильтрам.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ================= ТОП КОМПАНИЙ ================= -->
+<div class="rep-card" style="margin-bottom:20px;">
+    <div class="rep-card-head"><h3>Топ компаний по сумме заявок</h3></div>
+    <table class="rep-table">
+        <thead><tr><th>Компания</th><th>Заявок</th><th>Сумма</th></tr></thead>
+        <tbody>
+            {% for name, rec in top_companies %}
+                <tr>
+                    <td>{{ name }}</td>
+                    <td>{{ rec.count }}</td>
+                    <td class="rep-muted">{{ rec.amount | money }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="3" class="rep-muted">Нет данных по выбранным фильтрам.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- ================= ВЫГРУЗКИ ================= -->
+<div class="rep-card">
+    <div class="rep-card-head"><h3>Выгрузки в Excel</h3><span class="rep-muted">с текущими фильтрами</span></div>
+    <div class="rep-actions">
+        <a class="btn btn-primary" href="{{ url_for('export_companies', company=filters.company or None) }}">⇩ Компании</a>
+        <a class="btn btn-primary" href="{{ url_for('export_contacts', company=filters.company or None) }}">⇩ Контакты</a>
+        <a class="btn btn-primary" href="{{ url_for('export_deals', company=filters.company or None, status=filters.status or None, product_id=filters.product_id, date_from=filters.date_from or None, date_to=filters.date_to or None) }}">⇩ Заявки</a>
+        <a class="btn btn-primary" href="{{ url_for('export_deal_log', company=filters.company or None, status=filters.status or None, product_id=filters.product_id, date_from=filters.date_from or None, date_to=filters.date_to or None) }}">⇩ Журнал статусов</a>
+        <a class="btn btn-primary" href="{{ url_for('export_tasks', company=filters.company or None) }}">⇩ Задачи</a>
+        <a class="btn btn-primary" href="{{ url_for('export_products', company=filters.company or None) }}"> Матрица компания × продукт</a>
+    </div>
+    <div class="rep-note">
+        Фильтры «статус / продукт / период / компания» наследуются выгрузками заявок и журнала статусов;
+        поиск по компании — всеми выгрузками. Шапка файлов синяя МСП, первая строка закреплена.
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,548 @@
+{% extends "base.html" %}
+
+{% block title %}{{ company.display_name }}{% endblock %}
+{% block page_title %}Карточка компании{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>{{ company.display_name }}</h1>
+        <div class="head-meta">
+            <span class="code-chip">ИНН {{ company.inn }}</span>
+            {% if company.ogrn %}<span class="muted small">ОГРН {{ company.ogrn }}</span>{% endif %}
+            <span class="badge badge-blue">{{ company.status_label }}</span>
+        </div>
+    </div>
+
+    <div class="head-actions">
+        <form method="post" action="{{ url_for('company_refresh', company_id=company.id) }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline" type="submit">↻ Обновить данные</button>
+        </form>
+
+        <form method="post" action="{{ url_for('company_delete', company_id=company.id) }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-danger"
+                    data-confirm="Удалить компанию {{ company.display_name }} вместе с контактами, задачами, заявками и историей?">
+                ✕ Удалить
+            </button>
+        </form>
+    </div>
+</div>
+
+{% if company.checko_updated_at %}
+    <div class="info-strip">
+        Данные обновлены: {{ company.checko_updated_at.strftime('%d.%m.%Y %H:%M') }}
+    </div>
+{% endif %}
+
+<div class="tabs">
+    <button class="tab active" data-tab="card">Карточка</button>
+    <button class="tab" data-tab="extra">Сведения</button>
+    <button class="tab" data-tab="okved">ОКВЭД и продукты</button>
+    <button class="tab" data-tab="deals">Заявки</button>
+    <button class="tab" data-tab="contacts">Контакты</button>
+    <button class="tab" data-tab="history">История</button>
+    <button class="tab" data-tab="tasks">Задачи</button>
+</div>
+
+<!-- ================= КАРТОЧКА ================= -->
+<div class="pane active" data-pane="card">
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-head"><h3>Реквизиты</h3></div>
+            <div class="card-body">
+                <form method="post" action="{{ url_for('company_edit', company_id=company.id) }}" class="form-stack">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <label>Полное наименование
+                        <input type="text" name="name" value="{{ company.name }}">
+                    </label>
+
+                    <label>Краткое наименование
+                        <input type="text" name="short_name" value="{{ company.short_name }}">
+                    </label>
+
+                    <div class="form-row">
+                        <label>ОГРН
+                            <input type="text" name="ogrn" value="{{ company.ogrn }}">
+                        </label>
+                        <label>Дата регистрации
+                            <input type="text" name="reg_date" value="{{ company.reg_date }}">
+                        </label>
+                    </div>
+
+                    <label>Руководитель
+                        <input type="text" name="director" value="{{ company.director }}">
+                    </label>
+
+                    <label>Юридический адрес
+                        <textarea name="address" rows="2">{{ company.address }}</textarea>
+                    </label>
+
+                    <div class="form-row">
+                        <label>Телефон
+                            <input type="text" name="phone" value="{{ company.phone }}">
+                        </label>
+                        <label>E-mail
+                            <input type="text" name="email" value="{{ company.email }}">
+                        </label>
+                    </div>
+
+                    <label>Сайт
+                        <input type="text" name="site" value="{{ company.site }}">
+                    </label>
+
+                    <div class="form-row">
+                        <label>Основной ОКВЭД
+                            <input type="text" name="okved_main_code" value="{{ company.okved_main_code }}"
+                                   placeholder="46.12.1">
+                        </label>
+                        <label>Статус в работе
+                            <select name="status">
+                                {% for key, label in company_statuses.items() %}
+                                    <option value="{{ key }}" {% if company.status == key %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Сохранить карточку</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head"><h3>Финансы и дополнительные сведения</h3></div>
+            <div class="card-body">
+                <dl class="detail-list">
+                    <dt>Выручка</dt><dd>{{ company.revenue or '—' }}</dd>
+                    <dt>Чистая прибыль</dt><dd>{{ company.net_profit or '—' }}</dd>
+                    <dt>Активы</dt><dd>{{ company.assets or '—' }}</dd>
+                    <dt>Собственный капитал</dt><dd>{{ company.equity or '—' }}</dd>
+                    <dt>Основные средства</dt><dd>{{ company.fixed_assets or '—' }}</dd>
+                    <dt>Среднесписочная численность</dt><dd>{{ company.employee_count or '—' }}</dd>
+                </dl>
+
+                {% if company.founders %}
+                    <details class="mt-4">
+                        <summary>Учредители</summary>
+                        <div class="pre-wrap mt-2">{{ company.founders }}</div>
+                    </details>
+                {% endif %}
+
+                {% if company.okved_main_title %}
+                    <div class="info-box mt-4">
+                        <div class="small muted">Основной вид деятельности</div>
+                        <div>{{ company.okved_main_code }} — {{ company.okved_main_title }}</div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= СВЕДЕНИЯ ================= -->
+{% include "company_svedeniya.html" %}
+
+<!-- ================= ОКВЭД ================= -->
+<div class="pane" data-pane="okved">
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-head"><h3>ОКВЭД компании</h3></div>
+
+            <div class="table-wrap">
+                <table class="table table-sm">
+                    <thead>
+                        <tr><th>Код</th><th>Вид</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        {% for item in company.okveds %}
+                            <tr>
+                                <td>
+                                    <span class="code-chip">{{ item.code }}</span>
+                                    {% if item.title %}<div class="muted small">{{ item.title[:90] }}</div>{% endif %}
+                                </td>
+                                <td>
+                                    {% if item.is_main %}
+                                        <span class="badge badge-blue">основной</span>
+                                    {% else %}
+                                        <span class="muted small">дополнительный</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-right">
+                                    <form method="post"
+                                          action="{{ url_for('okved_delete', company_id=company.id, okved_id=item.id) }}"
+                                          class="inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button class="btn btn-sm btn-danger"
+                                                data-confirm="Удалить ОКВЭД {{ item.code }} и перепроверить продукты?">✕</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="3" class="muted">ОКВЭД не загружены.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card-body">
+                <form method="post" action="{{ url_for('okved_add', company_id=company.id) }}" class="form-stack">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="form-row">
+                        <label>Код ОКВЭД
+                            <input type="text" name="code" placeholder="46.12.1" required>
+                        </label>
+                        <label>Наименование вида
+                            <input type="text" name="title">
+                        </label>
+                    </div>
+
+                    <label class="checkbox-line">
+                        <input type="checkbox" name="is_main"> Это основной ОКВЭД
+                    </label>
+
+                    <button class="btn btn-outline btn-sm" type="submit">＋ Добавить ОКВЭД</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head">
+                <h3>Доступность продуктов</h3>
+                <form method="post" action="{{ url_for('company_check', company_id=company.id) }}" class="inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sm btn-primary">Проверить</button>
+                </form>
+            </div>
+
+            {% if not active_version %}
+                <div class="card-body">
+                    <div class="flash flash-warning">
+                        Справочник ОКВЭД не загружен.
+                        <a href="{{ url_for('products_page') }}">Загрузите файл в разделе «Продукты и ОКВЭД»</a>.
+                    </div>
+                </div>
+            {% endif %}
+
+            <div class="table-wrap">
+                <table class="table table-sm">
+                    <thead>
+                        <tr><th>Продукт</th><th>Результат</th><th>Условия</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for check in checks %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('product_detail', product_id=check.product_id) }}">
+                                        {{ check.product.name }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if check.result == 'allowed' %}
+                                        <span class="badge badge-green">Доступно</span>
+                                    {% elif check.result == 'conditional' %}
+                                        <span class="badge badge-orange">С условиями</span>
+                                    {% elif check.result == 'forbidden' %}
+                                        <span class="badge badge-red">Недоступно</span>
+                                    {% else %}
+                                        <span class="badge badge-gray">Нет данных</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if check.detail %}
+                                        <details>
+                                            <summary class="link small">Показать</summary>
+                                            <div class="pre-wrap small mt-2">{{ check.detail }}</div>
+                                        </details>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="3" class="muted">Проверка ещё не выполнялась.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if active_version %}
+                <div class="card-foot small muted">
+                    Версия справочника: {{ active_version.filename }}
+                    · {{ active_version.created_at.strftime('%d.%m.%Y %H:%M') }}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ================= ЗАЯВКИ ================= -->
+<div class="pane" data-pane="deals">
+    <div class="card">
+        <div class="card-head">
+            <h3>Заявки компании</h3>
+            <a href="{{ url_for('deals_page', new=1, company_id=company.id) }}" class="btn btn-sm btn-primary">
+                ＋ Новая заявка
+            </a>
+        </div>
+
+        <div class="table-wrap">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Продукт</th>
+                        <th>Сумма</th>
+                        <th>Срок</th>
+                        <th>Статус</th>
+                        <th>Аналитик</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for deal in company.deals %}
+                        <tr>
+                            <td>{{ deal.product.name if deal.product else '—' }}</td>
+                            <td>{{ deal.amount | money }}</td>
+                            <td class="{% if deal.is_overdue_term %}text-danger{% endif %}">
+                                {{ deal.term_date.strftime('%d.%m.%Y') if deal.term_date else '—' }}
+                            </td>
+                            <td><span class="badge badge-blue">{{ deal.status_label }}</span></td>
+                            <td>
+                                {{ deal.analyst_name or '—' }}
+                                {% if deal.analyst_phone %}<div class="muted small">{{ deal.analyst_phone }}</div>{% endif %}
+                            </td>
+                            <td class="text-right">
+                                <a href="{{ url_for('deals_page', edit=deal.id) }}" class="btn btn-sm btn-ghost">Изменить</a>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="6" class="muted">Заявок по компании пока нет.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ================= КОНТАКТЫ ================= -->
+<div class="pane" data-pane="contacts">
+    <div class="card">
+        <div class="card-head"><h3>Контактные лица</h3></div>
+
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ФИО</th>
+                        <th>Должность</th>
+                        <th>Телефон</th>
+                        <th>E-mail</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for contact in company.contacts %}
+                        <tr>
+                            <td>
+                                {{ contact.full_name or '—' }}
+                                {% if contact.is_primary %}<span class="badge badge-blue">основной</span>{% endif %}
+                            </td>
+                            <td>{{ contact.position or '—' }}</td>
+                            <td>{{ contact.phone or '—' }}</td>
+                            <td>
+                                {% if contact.email %}
+                                    <a href="{{ url_for('email_open', company_id=company.id, contact_id=contact.id, auto=1) }}"
+                                       class="email-link"
+                                       title="Открыть письмо в Outlook с обращением по ФИО">
+                                        ✉ {{ contact.email }}
+                                    </a>
+                                    <div class="muted small">
+                                        Обращение: {{ contact.full_name }}
+                                    </div>
+                                {% else %}
+                                    <span class="muted">не указан</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-right">
+                                <button class="btn btn-sm btn-ghost"
+                                        data-edit-contact
+                                        data-id="{{ contact.id }}"
+                                        data-full-name="{{ contact.full_name }}"
+                                        data-position="{{ contact.position }}"
+                                        data-phone="{{ contact.phone }}"
+                                        data-email="{{ contact.email }}"
+                                        data-primary="{{ 1 if contact.is_primary else 0 }}">
+                                    Изменить
+                                </button>
+
+                                <form method="post"
+                                      action="{{ url_for('contact_delete', company_id=company.id, contact_id=contact.id) }}"
+                                      class="inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button class="btn btn-sm btn-danger" data-confirm="Удалить контакт?">✕</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="5" class="muted">Контактов пока нет.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card-body">
+            <h4 class="mb-3" id="contactFormTitle">Новый контакт</h4>
+
+            <form method="post" action="{{ url_for('contact_save', company_id=company.id) }}" class="form-stack" id="contactForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="contact_id" id="contact_id" value="">
+
+                <div class="form-row">
+                    <label>ФИО (Фамилия Имя Отчество)
+                        <input type="text" name="full_name" id="contact_full_name"
+                               placeholder="Иванов Иван Сергеевич" required>
+                    </label>
+                    <label>Должность
+                        <input type="text" name="position" id="contact_position">
+                    </label>
+                </div>
+
+                <div class="form-row">
+                    <label>Телефон
+                        <input type="text" name="phone" id="contact_phone">
+                    </label>
+                    <label>E-mail
+                        <input type="email" name="email" id="contact_email">
+                    </label>
+                </div>
+
+                <label class="checkbox-line">
+                    <input type="checkbox" name="is_primary" id="contact_primary"> Основной контакт
+                </label>
+
+                <div class="flex-gap">
+                    <button class="btn btn-primary" type="submit">Сохранить контакт</button>
+                    <button class="btn btn-ghost" type="button" id="resetContactForm">Очистить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ================= ИСТОРИЯ ================= -->
+<div class="pane" data-pane="history">
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-head"><h3>Добавить запись</h3></div>
+            <div class="card-body">
+                <form method="post" action="{{ url_for('activity_add', company_id=company.id) }}" class="form-stack">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="form-row">
+                        <label>Тип
+                            <select name="type">
+                                {% for key, label in activity_types.items() %}
+                                    <option value="{{ key }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label>Тема
+                            <input type="text" name="subject" placeholder="Например: первичный звонок">
+                        </label>
+                    </div>
+
+                    <label>Текст
+                        <textarea name="body" rows="6" required placeholder="О чём договорились, какие шаги дальше…"></textarea>
+                    </label>
+
+                    <button class="btn btn-primary" type="submit">Добавить в историю</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head"><h3>История взаимодействий</h3></div>
+            <div class="card-body">
+                {% if activities %}
+                    <div class="timeline">
+                        {% for item in activities %}
+                            <div class="timeline-item">
+                                <div class="timeline-dot"></div>
+                                <div>
+                                    <div class="small muted">
+                                        {{ item.created_at.strftime('%d.%m.%Y %H:%M') }}
+                                        · {{ activity_types.get(item.type, item.type) }}
+                                    </div>
+                                    <div class="timeline-title">{{ item.subject or 'Заметка' }}</div>
+                                    <div class="pre-wrap small">{{ item.body }}</div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-inline">История пуста.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= ЗАДАЧИ ================= -->
+<div class="pane" data-pane="tasks">
+    <div class="card">
+        <div class="card-head"><h3>Задачи по компании</h3></div>
+
+        <div class="card-body">
+            <form method="post" action="{{ url_for('task_add', company_id=company.id) }}" class="filter-bar">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="title" placeholder="Например: отправить КП по поручительству" required>
+                <input type="date" name="due_date">
+                <button class="btn btn-primary" type="submit">＋ Создать задачу</button>
+            </form>
+        </div>
+
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr><th>Задача</th><th>Срок</th><th>Статус</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                        <tr class="{% if task.status == 'done' %}row-done{% endif %}">
+                            <td>{{ task.title }}</td>
+                            <td class="{% if task.is_overdue %}text-danger{% endif %}">
+                                {{ task.due_date.strftime('%d.%m.%Y') if task.due_date else '—' }}
+                            </td>
+                            <td>
+                                {% if task.status == 'done' %}
+                                    <span class="badge badge-green">Выполнена</span>
+                                {% elif task.is_overdue %}
+                                    <span class="badge badge-red">Просрочена</span>
+                                {% else %}
+                                    <span class="badge badge-orange">В работе</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-right">
+                                <form method="post" action="{{ url_for('task_toggle', task_id=task.id) }}" class="inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button class="btn btn-sm btn-outline">
+                                        {{ 'Вернуть' if task.status == 'done' else 'Выполнить' }}
+                                    </button>
+                                </form>
+
+                                <form method="post" action="{{ url_for('task_delete', task_id=task.id) }}" class="inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button class="btn btn-sm btn-danger" data-confirm="Удалить задачу?">✕</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="4" class="muted">Задач нет.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

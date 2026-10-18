@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}CRM МСП Банка{% endblock %}</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --msp-blue: #0066CC;
+            --msp-blue-dark: #0055AA;
+            --msp-blue-light: #E6F2FF;
+            --msp-gray: #666666;
+            --msp-light: #F5F7FA;
+            --msp-border: #E3E8EF;
+            --msp-success: #1A7F4B;
+            --msp-warning: #B96A00;
+            --msp-danger: #C62F38;
+        }
+
+        * { font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; }
+
+        body { background: var(--msp-light); color: #1c2733; font-size: 14px; }
+
+        .msp-navbar { background: #fff; border-bottom: 1px solid var(--msp-border); box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .msp-navbar .navbar-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--msp-blue-dark); font-size: 16px; }
+        .msp-navbar .brand-mark { width: 36px; height: 36px; background: linear-gradient(135deg, var(--msp-blue), var(--msp-blue-dark)); color: #fff; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; }
+        .msp-navbar .nav-link { color: #4a5568; font-weight: 500; padding: 10px 14px !important; border-radius: 6px; transition: all 0.15s; }
+        .msp-navbar .nav-link:hover { background: var(--msp-blue-light); color: var(--msp-blue-dark); }
+        .msp-navbar .nav-link.active { background: var(--msp-blue-light); color: var(--msp-blue-dark); }
+        .msp-navbar .nav-link i { margin-right: 6px; }
+
+        .msp-container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+        .msp-card { background: #fff; border: 1px solid var(--msp-border); border-radius: 12px; box-shadow: 0 1px 3px rgba(16,42,77,0.04); margin-bottom: 20px; }
+        .msp-card-header { padding: 16px 20px; border-bottom: 1px solid var(--msp-border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .msp-card-header h3, .msp-card-header h4 { margin: 0; font-size: 15px; font-weight: 600; color: #1a2332; }
+        .msp-card-body { padding: 20px; }
+
+        .btn-msp { background: var(--msp-blue); border-color: var(--msp-blue); color: #fff; font-weight: 500; padding: 8px 18px; border-radius: 8px; transition: all 0.15s; }
+        .btn-msp:hover { background: var(--msp-blue-dark); border-color: var(--msp-blue-dark); color: #fff; transform: translateY(-1px); }
+        .btn-outline-msp { background: #fff; border-color: var(--msp-border); color: var(--msp-blue-dark); font-weight: 500; padding: 8px 18px; border-radius: 8px; }
+        .btn-outline-msp:hover { background: var(--msp-blue-light); border-color: var(--msp-blue); color: var(--msp-blue-dark); }
+
+        .badge-msp-blue { background: var(--msp-blue-light); color: var(--msp-blue-dark); }
+        .badge-msp-green { background: #E5F5EC; color: var(--msp-success); }
+        .badge-msp-orange { background: #FFF3DD; color: var(--msp-warning); }
+        .badge-msp-red { background: #FDECED; color: var(--msp-danger); }
+        .badge-msp-gray { background: #EEF1F5; color: var(--msp-gray); }
+
+        .msp-table { background: #fff; border-radius: 12px; overflow: hidden; border: 1px solid var(--msp-border); }
+        .msp-table thead th { background: #FAFBFC; color: var(--msp-gray); font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 1px solid var(--msp-border); padding: 12px 16px; }
+        .msp-table tbody td { padding: 13px 16px; vertical-align: middle; border-bottom: 1px solid #f0f2f5; }
+        .msp-table tbody tr:hover { background: #FAFCFF; }
+
+        .stat-card { background: #fff; border: 1px solid var(--msp-border); border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(16,42,77,0.04); transition: transform 0.15s; }
+        .stat-card:hover { transform: translateY(-2px); }
+        .stat-card .stat-label { font-size: 12.5px; color: var(--msp-gray); margin-bottom: 8px; }
+        .stat-card .stat-value { font-size: 28px; font-weight: 700; color: #1a2332; letter-spacing: -0.5px; }
+        .stat-card.stat-blue { border-top: 3px solid var(--msp-blue); }
+        .stat-card.stat-green { border-top: 3px solid var(--msp-success); }
+        .stat-card.stat-orange { border-top: 3px solid var(--msp-warning); }
+
+        .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+        .page-header h1 { font-size: 24px; font-weight: 700; margin: 0 0 4px; color: #1a2332; }
+        .page-header .subtitle { color: var(--msp-gray); font-size: 13px; margin: 0; }
+
+        .msp-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--msp-border); margin-bottom: 20px; overflow-x: auto; }
+        .msp-tab { padding: 10px 18px; background: transparent; border: none; border-bottom: 2px solid transparent; font-size: 13.5px; font-weight: 500; color: var(--msp-gray); cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+        .msp-tab:hover { color: var(--msp-blue-dark); background: #f0f4fa; }
+        .msp-tab.active { color: var(--msp-blue); border-bottom-color: var(--msp-blue); }
+        .msp-pane { display: none; }
+        .msp-pane.active { display: block; animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+        .form-control, .form-select { border-radius: 8px; border-color: var(--msp-border); padding: 9px 12px; font-size: 13.5px; }
+        .form-control:focus, .form-select:focus { border-color: var(--msp-blue); box-shadow: 0 0 0 3px rgba(0,102,204,0.12); }
+        .form-label { font-size: 12.5px; font-weight: 500; color: var(--msp-gray); margin-bottom: 6px; }
+
+        .msp-flash { border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: 13.5px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .msp-flash-success { background: #E5F5EC; color: var(--msp-success); border: 1px solid #CBE9D8; }
+        .msp-flash-danger { background: #FDECED; color: var(--msp-danger); border: 1px solid #F5CFD2; }
+        .msp-flash-warning { background: #FFF3DD; color: var(--msp-warning); border: 1px solid #F5E2BD; }
+        .msp-flash-info { background: var(--msp-blue-light); color: var(--msp-blue-dark); border: 1px solid #D3E3FF; }
+
+        .code-chip { font-family: 'Consolas', monospace; background: var(--msp-light); padding: 3px 8px; border-radius: 5px; font-size: 12px; color: var(--msp-blue-dark); }
+        .info-strip { background: var(--msp-blue-light); color: #355B8F; padding: 10px 16px; border-radius: 8px; font-size: 12.5px; margin-bottom: 20px; }
+
+        .timeline-item { display: flex; gap: 14px; padding: 10px 0 18px; }
+        .timeline-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--msp-blue); margin-top: 6px; flex-shrink: 0; box-shadow: 0 0 0 4px var(--msp-blue-light); }
+
+        .empty-state { padding: 40px 20px; text-align: center; color: var(--msp-gray); }
+
+        /* Построчные блоки раздела "Сведения" */
+        .section-lines { list-style: none; margin: 0; padding: 8px 20px; }
+        .section-lines li { padding: 6px 0; border-bottom: 1px dashed #eef1f5; font-size: 12.5px; }
+        .section-lines li:last-child { border-bottom: none; }
+
+        .auth-wrapper { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #0B2545 0%, #13315C 60%, #0066CC 140%); padding: 20px; }
+        .auth-card { background: #fff; border-radius: 16px; padding: 40px; width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
+
+        .fetch-card { max-width: 640px; margin: 40px auto; }
+        .fetch-icon { font-size: 48px; margin-bottom: 12px; }
+        .progress { height: 8px; border-radius: 20px; background: var(--msp-light); }
+        .progress-bar { background: var(--msp-blue); border-radius: 20px; }
+
+        @media (max-width: 768px) {
+            .msp-container { padding: 16px; }
+            .page-header h1 { font-size: 20px; }
+        }
+    </style>
+
+    {% block head %}{% endblock %}
+</head>
+<body>
+
+{% if current_user.is_authenticated %}
+<nav class="navbar navbar-expand-lg msp-navbar sticky-top">
+    <div class="container-fluid" style="max-width:1400px; margin:0 auto; padding: 0 24px;">
+        <a class="navbar-brand" href="{{ url_for('dashboard') }}">
+            <div class="brand-mark">М</div>
+            <div>
+                <div>CRM Менеджера</div>
+                <div style="font-size:11px; color:var(--msp-gray); font-weight:400;">Корпоративный бизнес</div>
+            </div>
+        </a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="mainNav">
+            <ul class="navbar-nav mx-auto">
+                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><i class="bi bi-grid-1x2-fill"></i>Дашборд</a></li>
+                <li class="nav-item"><a class="nav-link {% if request.endpoint in ['companies','company_new','company_detail'] %}active{% endif %}" href="{{ url_for('companies') }}"><i class="bi bi-building"></i>Компании</a></li>
+                <li class="nav-item"><a class="nav-link {% if request.endpoint in ['deals_page','deal_new','deal_edit'] %}active{% endif %}" href="{{ url_for('deals_page') }}"><i class="bi bi-file-earmark-text"></i>Заявки</a></li>
+                <li class="nav-item"><a class="nav-link {% if request.endpoint in ['products_page','product_detail'] %}active{% endif %}" href="{{ url_for('products_page') }}"><i class="bi bi-list-check"></i>Продукты</a></li>
+                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'tasks_page' %}active{% endif %}" href="{{ url_for('tasks_page') }}"><i class="bi bi-check2-square"></i>Задачи</a></li>
+                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'reports_page' %}active{% endif %}" href="{{ url_for('reports_page') }}"><i class="bi bi-download"></i>Отчёты</a></li>
+                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'templates_page' %}active{% endif %}" href="{{ url_for('templates_page') }}"><i class="bi bi-envelope"></i>Шаблоны</a></li>
+            </ul>
+
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-muted small d-none d-md-inline">{{ now.strftime('%d.%m.%Y') }}</span>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-msp dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle"></i>
+                        {{ current_user.full_name or current_user.username }}
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{{ url_for('profile') }}"><i class="bi bi-gear"></i> Личный кабинет</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-right"></i> Выйти</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="msp-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="msp-flash msp-flash-{{ category }}">
+                    <span><i class="bi bi-{{ 'check-circle' if category == 'success' else 'exclamation-triangle' if category == 'warning' else 'info-circle' if category == 'info' else 'x-circle' }}"></i> {{ message }}</span>
+                    <button type="button" class="btn-close" style="font-size:10px;" onclick="this.parentElement.remove()"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+
+    {% if error_page %}
+        <div class="msp-card">
+            <div class="msp-card-body text-center py-5">
+                <h2 class="mb-3">{{ error_page }}</h2>
+                <a class="btn btn-msp" href="{{ url_for('dashboard') }}">На главную</a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% block scripts %}{% endblock %}
+
+{% else %}
+<div class="auth-wrapper">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="msp-flash msp-flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endwith %}
+    {% block auth_content %}{% endblock %}
+</div>
+{% endif %}
+
+</body>
+</html>

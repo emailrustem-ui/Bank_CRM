@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Задачи{% endblock %}
+{% block page_title %}Задачи{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Мои задачи</h1>
+        <p class="muted">План работы по компаниям</p>
+    </div>
+
+    <div class="flex-gap">
+        <a href="{{ url_for('tasks_page', status='open') }}" class="btn {% if status == 'open' %}btn-primary{% else %}btn-ghost{% endif %}">Открытые</a>
+        <a href="{{ url_for('tasks_page', status='done') }}" class="btn {% if status == 'done' %}btn-primary{% else %}btn-ghost{% endif %}">Выполненные</a>
+        <a href="{{ url_for('tasks_page', status='all') }}" class="btn {% if status == 'all' %}btn-primary{% else %}btn-ghost{% endif %}">Все</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-wrap">
+        <table class="table">
+            <thead>
+                <tr><th>Компания</th><th>Задача</th><th>Срок</th><th>Статус</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for task in tasks %}
+                    <tr class="{% if task.status == 'done' %}row-done{% endif %}">
+                        <td>
+                            <a href="{{ url_for('company_detail', company_id=task.company_id) }}">
+                                {{ task.company.display_name }}
+                            </a>
+                            <div class="muted small">ИНН {{ task.company.inn }}</div>
+                        </td>
+                        <td>{{ task.title }}</td>
+                        <td class="{% if task.is_overdue %}text-danger{% endif %}">
+                            {{ task.due_date.strftime('%d.%m.%Y') if task.due_date else '—' }}
+                        </td>
+                        <td>
+                            {% if task.status == 'done' %}
+                                <span class="badge badge-green">Выполнена</span>
+                            {% elif task.is_overdue %}
+                                <span class="badge badge-red">Просрочена</span>
+                            {% else %}
+                                <span class="badge badge-orange">В работе</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            <form method="post" action="{{ url_for('task_toggle', task_id=task.id) }}" class="inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button class="btn btn-sm btn-outline">
+                                    {{ 'Вернуть' if task.status == 'done' else 'Выполнить' }}
+                                </button>
+                            </form>
+
+                            <form method="post" action="{{ url_for('task_delete', task_id=task.id) }}" class="inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button class="btn btn-sm btn-danger" data-confirm="Удалить задачу?">✕</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" class="muted">Задач нет.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

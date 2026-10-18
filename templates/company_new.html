@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Новая компания{% endblock %}
+{% block page_title %}Новая компания{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Создание компании</h1>
+        <p class="muted">Введите ИНН — остальное подтянется автоматически</p>
+    </div>
+</div>
+
+<div class="grid-2">
+    <div class="card">
+        <div class="card-head"><h3>Автоматическое создание по ИНН</h3></div>
+
+        <div class="card-body">
+            <div class="flow-steps">
+                <div class="flow-step"><span>1</span> Вводите ИНН</div>
+                <div class="flow-step"><span>2</span> Система получает реквизиты, ОКВЭД и финансы</div>
+                <div class="flow-step"><span>3</span> CRM автоматически проверяет продукты</div>
+            </div>
+
+            <form method="post" class="form-stack mt-4">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="mode" value="auto">
+
+                <label>
+                    ИНН компании
+                    <input type="text" name="inn" value="{{ inn }}"
+                           placeholder="10 или 12 цифр"
+                           pattern="[0-9]{10}|[0-9]{12}"
+                           maxlength="12" required autofocus>
+                </label>
+
+                <button type="submit" class="btn btn-primary btn-full">
+                    Загрузить данные
+                </button>
+            </form>
+
+            <p class="hint mt-3">
+                Загрузка занимает примерно 20–40 секунд и идёт в фоновом режиме.
+                Данные кэшируются; повторное обновление доступно из карточки компании.
+            </p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-head"><h3>Создать вручную</h3></div>
+        <div class="card-body">
+            <p class="muted">
+                Если источник данных недоступен или компании в нём ещё нет —
+                создайте карточку вручную и заполните реквизиты.
+            </p>
+
+            <form method="post" class="form-stack mt-4">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="mode" value="manual">
+
+                <label>
+                    ИНН компании
+                    <input type="text" name="inn" placeholder="10 или 12 цифр"
+                           pattern="[0-9]{10}|[0-9]{12}" maxlength="12" required>
+                </label>
+
+                <button type="submit" class="btn btn-outline btn-full">Создать пустую карточку</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

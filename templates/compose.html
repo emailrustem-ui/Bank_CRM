@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Новое письмо{% endblock %}
+{% block page_title %}Письмо контакту{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Новое письмо</h1>
+        <p class="muted">
+            {{ contact.full_name }} · {{ contact.email }}
+        </p>
+    </div>
+    <a href="{{ url_for('company_detail', company_id=company.id, tab='contacts') }}" class="btn btn-ghost">← К компании</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="get" class="filter-bar">
+            <input type="hidden" name="template_id_hidden" value="1">
+
+            <label class="flex-1">Шаблон письма
+                <select name="template_id" id="templateSelect">
+                    {% for item in templates %}
+                        <option value="{{ item.id }}" {% if template and template.id == item.id %}selected{% endif %}>
+                            {{ item.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <button class="btn btn-outline" type="submit">Применить шаблон</button>
+        </form>
+
+        <div class="info-box mt-3">
+            <b>Обращение:</b> {{ greeting }}
+            <div class="small muted mt-2">
+                Формируется автоматически по ФИО контакта.
+                Доступные переменные: <code>{% raw %}{{ greeting }}{% endraw %}</code>,
+                <code>{% raw %}{{ company_name }}{% endraw %}</code>,
+                <code>{% raw %}{{ inn }}{% endraw %}</code>,
+                <code>{% raw %}{{ manager }}{% endraw %}</code>,
+                <code>{% raw %}{{ product }}{% endraw %}</code>,
+                <code>{% raw %}{{ date }}{% endraw %}</code>.
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-body">
+        <form method="post" action="{{ url_for('email_send', company_id=company.id, contact_id=contact.id) }}" class="form-stack">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="template_id" value="{{ template.id if template else '' }}">
+
+            <label>Кому
+                <input type="text" value="{{ contact.email }}" disabled>
+            </label>
+
+            <label>Тема
+                <input type="text" name="subject" value="{{ subject }}" required>
+            </label>
+
+            <label>Текст письма
+                <textarea name="body" rows="18" class="mail-body">{{ body }}</textarea>
+            </label>
+
+            <div class="flex-gap">
+                <button type="submit" class="btn btn-primary">✉ Открыть в Outlook</button>
+
+                <a class="btn btn-outline"
+                   href="{{ url_for('email_mailto', company_id=company.id, contact_id=contact.id, subject=subject, body=body) }}">
+                    Открыть в почтовом клиенте
+                </a>
+
+                <button type="button" class="btn btn-ghost" id="copyMailBody">Скопировать текст</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="info-strip mt-4">
+    Если Outlook не открылся — запустите локальный агент <code>tools/outlook_agent.py</code>
+    на компьютере менеджера. Кнопка «Открыть в почтовом клиенте» работает без агента
+    через стандартный обработчик <code>mailto:</code>.
+</div>
+{% endblock %}

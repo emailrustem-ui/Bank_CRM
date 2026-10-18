@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Личный кабинет{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Личный кабинет</h1>
+        <p class="subtitle">Настройки учётной записи менеджера</p>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="msp-card">
+            <div class="msp-card-header"><h3><i class="bi bi-person-badge me-2"></i>Профиль</h3></div>
+            <div class="msp-card-body">
+                <form method="post" action="{{ url_for('profile') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="save_profile">
+
+                    <div class="mb-3">
+                        <label class="form-label">Логин</label>
+                        <input type="text" class="form-control" value="{{ current_user.username }}" disabled>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">ФИО (используется в подписи писем {{ '{{ manager }}' }})</label>
+                        <input type="text" name="full_name" class="form-control"
+                               value="{{ current_user.full_name }}" placeholder="Фамилия Имя Отчество">
+                    </div>
+
+                    <button class="btn btn-msp" type="submit"><i class="bi bi-check-lg"></i> Сохранить профиль</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="msp-card">
+            <div class="msp-card-header"><h3><i class="bi bi-shield-lock me-2"></i>Смена пароля</h3></div>
+            <div class="msp-card-body">
+                <form method="post" action="{{ url_for('profile') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="change_password">
+
+                    <div class="mb-3">
+                        <label class="form-label">Текущий пароль</label>
+                        <input type="password" name="current_password" class="form-control" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Новый пароль (минимум 6 символов)</label>
+                        <input type="password" name="new_password" class="form-control" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Повторите новый пароль</label>
+                        <input type="password" name="confirm_password" class="form-control" required>
+                    </div>
+
+                    <button class="btn btn-msp" type="submit"><i class="bi bi-key"></i> Сменить пароль</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

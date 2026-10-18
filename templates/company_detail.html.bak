@@ -1,0 +1,593 @@
+{% extends "base.html" %}
+
+{% block title %}{{ company.display_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ company.display_name }}</h1>
+        <div class="d-flex align-items-center gap-2 flex-wrap mt-2">
+            <span class="code-chip"><i class="bi bi-hash"></i> ИНН {{ company.inn }}</span>
+            {% if company.ogrn %}<span class="text-muted small">ОГРН {{ company.ogrn }}</span>{% endif %}
+            <span class="badge badge-msp-blue">{{ company.status_label }}</span>
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <form method="post" action="{{ url_for('company_refresh', company_id=company.id) }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline-msp" type="submit"><i class="bi bi-arrow-clockwise"></i> Обновить данные</button>
+        </form>
+        <form method="post" action="{{ url_for('company_delete', company_id=company.id) }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline-danger"
+                    data-confirm="Удалить компанию {{ company.display_name }} вместе со всеми связанными данными?">
+                <i class="bi bi-trash"></i> Удалить
+            </button>
+        </form>
+    </div>
+</div>
+
+{% if company.checko_updated_at %}
+    <div class="info-strip">
+        <i class="bi bi-info-circle"></i> Данные обновлены: {{ company.checko_updated_at.strftime('%d.%m.%Y %H:%M') }}
+    </div>
+{% endif %}
+
+<div class="msp-tabs">
+    <button class="msp-tab active" data-tab="card"><i class="bi bi-card-text"></i> Карточка</button>
+    <button class="msp-tab" data-tab="extra"><i class="bi bi-info-circle"></i> Сведения</button>
+    <button class="msp-tab" data-tab="okved"><i class="bi bi-list-check"></i> ОКВЭД и продукты</button>
+    <button class="msp-tab" data-tab="deals"><i class="bi bi-file-earmark-text"></i> Заявки</button>
+    <button class="msp-tab" data-tab="contacts"><i class="bi bi-people"></i> Контакты</button>
+    <button class="msp-tab" data-tab="history"><i class="bi bi-clock-history"></i> История</button>
+    <button class="msp-tab" data-tab="tasks"><i class="bi bi-check2-square"></i> Задачи</button>
+</div>
+
+<!-- ================= КАРТОЧКА ================= -->
+<div class="msp-pane active" data-pane="card">
+    <div class="row g-3">
+        <div class="col-lg-7">
+            <div class="msp-card">
+                <div class="msp-card-header"><h3><i class="bi bi-file-earmark-text me-2"></i>Реквизиты</h3></div>
+                <div class="msp-card-body">
+                    <form method="post" action="{{ url_for('company_edit', company_id=company.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <div class="mb-3">
+                            <label class="form-label">Полное наименование</label>
+                            <input type="text" name="name" class="form-control" value="{{ company.name }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Краткое наименование</label>
+                            <input type="text" name="short_name" class="form-control" value="{{ company.short_name }}">
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">ОГРН</label>
+                                <input type="text" name="ogrn" class="form-control" value="{{ company.ogrn }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Дата регистрации</label>
+                                <input type="text" name="reg_date" class="form-control" value="{{ company.reg_date }}">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Руководитель</label>
+                            <input type="text" name="director" class="form-control" value="{{ company.director }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Юридический адрес</label>
+                            <textarea name="address" class="form-control" rows="2">{{ company.address }}</textarea>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Телефон</label>
+                                <input type="text" name="phone" class="form-control" value="{{ company.phone }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">E-mail</label>
+                                <input type="text" name="email" class="form-control" value="{{ company.email }}">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Сайт</label>
+                            <input type="text" name="site" class="form-control" value="{{ company.site }}">
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Основной ОКВЭД</label>
+                                <input type="text" name="okved_main_code" class="form-control" value="{{ company.okved_main_code }}" placeholder="46.12.1">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Статус в работе</label>
+                                <select name="status" class="form-select">
+                                    {% for key, label in company_statuses.items() %}
+                                        <option value="{{ key }}" {% if company.status == key %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-msp"><i class="bi bi-check-lg"></i> Сохранить карточку</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="msp-card">
+                <div class="msp-card-header"><h3><i class="bi bi-graph-up me-2"></i>Финансы и сведения</h3></div>
+                <div class="msp-card-body">
+                    <dl class="detail-list">
+                        <dt>Выручка</dt><dd>{{ company.revenue or '—' }}</dd>
+                        <dt>Чистая прибыль</dt><dd>{{ company.net_profit or '—' }}</dd>
+                        <dt>Активы</dt><dd>{{ company.assets or '—' }}</dd>
+                        <dt>Собственный капитал</dt><dd>{{ company.equity or '—' }}</dd>
+                        <dt>Основные средства</dt><dd>{{ company.fixed_assets or '—' }}</dd>
+                        <dt>Среднесписочная численность</dt><dd>{{ company.employee_count or '—' }}</dd>
+                    </dl>
+
+                    {% if company.founders %}
+                        <details class="mt-3">
+                            <summary class="fw-semibold" style="cursor:pointer;">Учредители</summary>
+                            <div class="pre-wrap mt-2 small">{{ company.founders }}</div>
+                        </details>
+                    {% endif %}
+
+                    {% if company.okved_main_title %}
+                        <div class="info-strip mt-3">
+                            <div class="small text-muted mb-1">Основной вид деятельности</div>
+                            <div><strong>{{ company.okved_main_code }}</strong> — {{ company.okved_main_title }}</div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= СВЕДЕНИЯ ================= -->
+<div class="msp-pane" data-pane="extra">
+    {% set sec = extra.get('sections', {}) %}
+    {% set counts = extra.get('counts', {}) %}
+    {% set salary = extra.get('salary', []) %}
+
+    {% set section_titles = [
+        ('reliability', 'Оценка надёжности'),
+        ('sanctions', 'Санкции'),
+        ('bankruptcy', 'ЕФРСБ (реестр банкротств)'),
+        ('accounts', 'Блокировка банковских счетов'),
+        ('taxes', 'Налоги и сборы'),
+        ('tax_regime', 'Специальный налоговый режим'),
+        ('arbitration', 'Арбитражные дела'),
+        ('fssp', 'ФССП / исполнительные производства'),
+        ('checks', 'Проверки и КНМ'),
+        ('goszakupki', 'Госзакупки'),
+        ('fedresurs', 'Федресурс'),
+        ('licenses', 'Лицензии'),
+        ('trademarks', 'Товарные знаки'),
+        ('leasing', 'Лизинг'),
+        ('pledges', 'Залоги'),
+        ('msp', 'Реестр МСП'),
+        ('management', 'Управляющая организация'),
+        ('registrar', 'Держатель реестра акционеров'),
+        ('vacancies', 'Вакансии'),
+        ('history', 'История изменений')
+    ] %}
+
+    {% if facts or sec or counts or salary %}
+        {% if facts %}
+            <div class="msp-card">
+                <div class="msp-card-header"><h3><i class="bi bi-card-heading me-2"></i>Паспорт компании</h3></div>
+                <div class="msp-card-body">
+                    <dl class="detail-list mb-0">
+                        {% if facts.get('ogrn') %}<dt>ОГРН</dt><dd>{{ facts['ogrn'] }}</dd>{% endif %}
+                        {% if facts.get('inn') %}<dt>ИНН</dt><dd>{{ facts['inn'] }}</dd>{% endif %}
+                        {% if facts.get('kpp') %}<dt>КПП</dt><dd>{{ facts['kpp'] }}</dd>{% endif %}
+                        {% if facts.get('reg_date') %}<dt>Дата регистрации</dt><dd>{{ facts['reg_date'] }}</dd>{% endif %}
+                        {% if facts.get('okved') %}<dt>Вид деятельности</dt><dd>{{ facts['okved'] }}</dd>{% endif %}
+                        {% if facts.get('address') %}<dt>Юридический адрес</dt><dd>{{ facts['address'] }}</dd>{% endif %}
+                        {% if facts.get('opf') %}<dt>Организационно-правовая форма</dt><dd>{{ facts['opf'] }}</dd>{% endif %}
+                        {% if facts.get('capital') %}<dt>Уставный капитал</dt><dd>{{ facts['capital'] }}</dd>{% endif %}
+                        {% if facts.get('tax_regime') %}<dt>Специальный налоговый режим</dt><dd>{{ facts['tax_regime'] }}</dd>{% endif %}
+                        {% if facts.get('msp') %}<dt>Реестр МСП</dt><dd>{{ facts['msp'] }}</dd>{% endif %}
+                    </dl>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if counts %}
+            <div class="msp-card">
+                <div class="msp-card-header"><h3><i class="bi bi-bar-chart me-2"></i>Показатели карточки</h3></div>
+                <div class="msp-card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for name, value in counts.items() %}
+                            <span class="code-chip">{{ name }}: <strong>{{ value }}</strong></span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="row g-3">
+            {% for key, title in section_titles %}
+                {% if sec.get(key) %}
+                    <div class="col-md-6">
+                        <div class="msp-card h-100">
+                            <div class="msp-card-header"><h3>{{ title }}</h3></div>
+                            <div class="msp-card-body p-0">
+                                <ul class="section-lines mb-0">
+                                    {% for line in sec[key].split('\n') %}
+                                        {% if line.strip() %}<li>{{ line }}</li>{% endif %}
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        {% if salary %}
+            <div class="msp-card mt-3">
+                <div class="msp-card-header"><h3><i class="bi bi-cash-stack me-2"></i>Среднемесячная зарплата и численность по годам</h3></div>
+                <div class="table-responsive">
+                    <table class="table table-sm msp-table mb-0">
+                        <thead><tr><th>Год</th><th>Численность</th><th>Зарплата</th></tr></thead>
+                        <tbody>
+                            {% for row in salary %}
+                                <tr><td>{{ row.year }}</td><td>{{ row.headcount }}</td><td>{{ row.salary }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="msp-card">
+            <div class="msp-card-body empty-state">
+                <i class="bi bi-info-circle" style="font-size:32px; opacity:0.3;"></i>
+                <p class="mt-2 mb-0">Дополнительные сведения появятся после обновления данных компании</p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- ================= ОКВЭД ================= -->
+<div class="msp-pane" data-pane="okved">
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="msp-card">
+                <div class="msp-card-header"><h3><i class="bi bi-list-check me-2"></i>ОКВЭД компании</h3></div>
+                <div class="table-responsive">
+                    <table class="table table-sm msp-table mb-0">
+                        <thead><tr><th>Код</th><th>Вид</th><th style="width:50px;"></th></tr></thead>
+                        <tbody>
+                            {% for item in company.okveds %}
+                                <tr>
+                                    <td><span class="code-chip">{{ item.code }}</span>{% if item.title %}<div class="small text-muted mt-1">{{ item.title[:90] }}</div>{% endif %}</td>
+                                    <td>{% if item.is_main %}<span class="badge badge-msp-blue">основной</span>{% else %}<span class="text-muted small">дополнительный</span>{% endif %}</td>
+                                    <td class="text-end">
+                                        <form method="post" action="{{ url_for('okved_delete', company_id=company.id, okved_id=item.id) }}" class="inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button class="btn btn-sm btn-outline-danger" data-confirm="Удалить ОКВЭД {{ item.code }}?"><i class="bi bi-x"></i></button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% else %}
+                                <tr><td colspan="3" class="text-muted text-center py-3">ОКВЭД не загружены</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="msp-card-body border-top">
+                    <form method="post" action="{{ url_for('okved_add', company_id=company.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-5"><input type="text" name="code" class="form-control" placeholder="Код ОКВЭД (46.12.1)" required></div>
+                            <div class="col-md-5"><input type="text" name="title" class="form-control" placeholder="Наименование вида"></div>
+                            <div class="col-md-2">
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" name="is_main" id="is_main_okved">
+                                    <label class="form-check-label small" for="is_main_okved">Основной</label>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-msp" type="submit"><i class="bi bi-plus-lg"></i> Добавить ОКВЭД</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="msp-card">
+                <div class="msp-card-header">
+                    <h3><i class="bi bi-shield-check me-2"></i>Доступность продуктов</h3>
+                    <form method="post" action="{{ url_for('company_check', company_id=company.id) }}" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-sm btn-msp"><i class="bi bi-arrow-clockwise"></i> Проверить</button>
+                    </form>
+                </div>
+
+                {% if not active_version %}
+                    <div class="msp-card-body">
+                        <div class="msp-flash msp-flash-warning">
+                            <span><i class="bi bi-exclamation-triangle"></i> Справочник ОКВЭД не загружен. <a href="{{ url_for('products_page') }}">Загрузите файл</a></span>
+                        </div>
+                    </div>
+                {% endif %}
+
+                <div class="table-responsive">
+                    <table class="table table-sm msp-table mb-0">
+                        <thead><tr><th>Продукт</th><th>Результат</th><th>Условия</th></tr></thead>
+                        <tbody>
+                            {% for check in checks %}
+                                <tr>
+                                    <td><a href="{{ url_for('product_detail', product_id=check.product_id) }}">{{ check.product.name }}</a></td>
+                                    <td>
+                                        {% if check.result == 'allowed' %}<span class="badge badge-msp-green">Доступно</span>
+                                        {% elif check.result == 'conditional' %}<span class="badge badge-msp-orange">С условиями</span>
+                                        {% elif check.result == 'forbidden' %}<span class="badge badge-msp-red">Недоступно</span>
+                                        {% else %}<span class="badge badge-msp-gray">Нет данных</span>{% endif %}
+                                    </td>
+                                    <td>
+                                        {% if check.detail %}
+                                            <details>
+                                                <summary class="small" style="cursor:pointer;">Показать</summary>
+                                                <div class="pre-wrap small mt-2">{{ check.detail }}</div>
+                                            </details>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% else %}
+                                <tr><td colspan="3" class="text-muted text-center py-3">Проверка ещё не выполнялась</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if active_version %}
+                    <div class="p-3 small text-muted border-top">
+                        <i class="bi bi-file-earmark"></i> Версия справочника: {{ active_version.filename }} · {{ active_version.created_at.strftime('%d.%m.%Y %H:%M') }}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= ЗАЯВКИ ================= -->
+<div class="msp-pane" data-pane="deals">
+    <div class="msp-card">
+        <div class="msp-card-header">
+            <h3><i class="bi bi-file-earmark-text me-2"></i>Заявки компании</h3>
+            <a href="{{ url_for('deals_page', new=1, company_id=company.id) }}" class="btn btn-sm btn-msp">
+                <i class="bi bi-plus-lg"></i> Новая заявка
+            </a>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm msp-table mb-0">
+                <thead><tr><th>Продукт</th><th>Сумма</th><th>Срок</th><th>Статус</th><th>Аналитик</th><th style="width:50px;"></th></tr></thead>
+                <tbody>
+                    {% for deal in company.deals %}
+                        <tr>
+                            <td>{{ deal.product.name if deal.product else '—' }}</td>
+                            <td><strong>{{ deal.amount | money }}</strong></td>
+                            <td class="{% if deal.is_overdue_term %}text-danger{% endif %}">{{ deal.term_date.strftime('%d.%m.%Y') if deal.term_date else '—' }}</td>
+                            <td><span class="badge badge-msp-blue">{{ deal.status_label }}</span></td>
+                            <td>{{ deal.analyst_name or '—' }}{% if deal.analyst_phone %}<div class="small text-muted">{{ deal.analyst_phone }}</div>{% endif %}</td>
+                            <td class="text-end"><a href="{{ url_for('deals_page', edit=deal.id) }}" class="btn btn-sm btn-outline-msp"><i class="bi bi-pencil"></i></a></td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="6" class="text-muted text-center py-3">Заявок по компании пока нет</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ================= КОНТАКТЫ ================= -->
+<div class="msp-pane" data-pane="contacts">
+    <div class="msp-card">
+        <div class="msp-card-header"><h3><i class="bi bi-people me-2"></i>Контактные лица</h3></div>
+        <div class="table-responsive">
+            <table class="table msp-table mb-0">
+                <thead><tr><th>ФИО</th><th>Должность</th><th>Телефон</th><th>E-mail</th><th style="width:120px;"></th></tr></thead>
+                <tbody>
+                    {% for contact in company.contacts %}
+                        <tr>
+                            <td>{{ contact.full_name or '—' }}{% if contact.is_primary %}<span class="badge badge-msp-blue ms-1">основной</span>{% endif %}</td>
+                            <td>{{ contact.position or '—' }}</td>
+                            <td>{{ contact.phone or '—' }}</td>
+                            <td>
+                                {% if contact.email %}
+                                    <a href="{{ url_for('email_open', company_id=company.id, contact_id=contact.id, auto=1) }}" class="email-link">
+                                        <i class="bi bi-envelope"></i> {{ contact.email }}
+                                    </a>
+                                    <div class="small text-muted">Обращение: {{ contact.full_name }}</div>
+                                {% else %}
+                                    <span class="text-muted">не указан</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-msp"
+                                        data-edit-contact
+                                        data-id="{{ contact.id }}"
+                                        data-full-name="{{ contact.full_name }}"
+                                        data-position="{{ contact.position }}"
+                                        data-phone="{{ contact.phone }}"
+                                        data-email="{{ contact.email }}"
+                                        data-primary="{{ 1 if contact.is_primary else 0 }}">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <form method="post" action="{{ url_for('contact_delete', company_id=company.id, contact_id=contact.id) }}" class="inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button class="btn btn-sm btn-outline-danger" data-confirm="Удалить контакт?"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="5" class="text-muted text-center py-3">Контактов пока нет</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="msp-card-body border-top">
+            <h5 class="mb-3" id="contactFormTitle">Новый контакт</h5>
+            <form method="post" action="{{ url_for('contact_save', company_id=company.id) }}" id="contactForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="contact_id" id="contact_id" value="">
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">ФИО (Фамилия Имя Отчество) *</label>
+                        <input type="text" name="full_name" id="contact_full_name" class="form-control" placeholder="Иванов Иван Сергеевич" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Должность</label>
+                        <input type="text" name="position" id="contact_position" class="form-control">
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Телефон</label>
+                        <input type="text" name="phone" id="contact_phone" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">E-mail</label>
+                        <input type="email" name="email" id="contact_email" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" name="is_primary" id="contact_primary">
+                    <label class="form-check-label" for="contact_primary">Основной контакт</label>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button class="btn btn-msp" type="submit"><i class="bi bi-check-lg"></i> Сохранить контакт</button>
+                    <button class="btn btn-outline-msp" type="button" id="resetContactForm">Очистить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ================= ИСТОРИЯ ================= -->
+<div class="msp-pane" data-pane="history">
+    <div class="row g-3">
+        <div class="col-lg-5">
+            <div class="msp-card">
+                <div class="msp-card-header"><h3><i class="bi bi-plus-circle me-2"></i>Добавить запись</h3></div>
+                <div class="msp-card-body">
+                    <form method="post" action="{{ url_for('activity_add', company_id=company.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Тип</label>
+                                <select name="type" class="form-select">
+                                    {% for key, label in activity_types.items() %}
+                                        <option value="{{ key }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Тема</label>
+                                <input type="text" name="subject" class="form-control" placeholder="Например: первичный звонок">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Текст</label>
+                            <textarea name="body" class="form-control" rows="5" required placeholder="О чём договорились, какие шаги дальше…"></textarea>
+                        </div>
+
+                        <button class="btn btn-msp" type="submit"><i class="bi bi-plus-lg"></i> Добавить в историю</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="msp-card">
+                <div class="msp-card-header"><h3><i class="bi bi-clock-history me-2"></i>История взаимодействий</h3></div>
+                <div class="msp-card-body">
+                    {% if activities %}
+                        {% for item in activities %}
+                            <div class="timeline-item">
+                                <div class="timeline-dot"></div>
+                                <div class="flex-grow-1">
+                                    <div class="small text-muted">
+                                        {{ item.created_at.strftime('%d.%m.%Y %H:%M') }}
+                                        · {{ activity_types.get(item.type, item.type) }}
+                                    </div>
+                                    <div class="fw-semibold">{{ item.subject or 'Заметка' }}</div>
+                                    <div class="small pre-wrap">{{ item.body }}</div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">История пуста</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= ЗАДАЧИ ================= -->
+<div class="msp-pane" data-pane="tasks">
+    <div class="msp-card">
+        <div class="msp-card-header"><h3><i class="bi bi-check2-square me-2"></i>Задачи по компании</h3></div>
+        <div class="msp-card-body border-bottom">
+            <form method="post" action="{{ url_for('task_add', company_id=company.id) }}" class="row g-2 align-items-end">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-6"><input type="text" name="title" class="form-control" placeholder="Например: отправить КП по поручительству" required></div>
+                <div class="col-md-3"><input type="date" name="due_date" class="form-control"></div>
+                <div class="col-md-3"><button class="btn btn-msp w-100" type="submit"><i class="bi bi-plus-lg"></i> Создать задачу</button></div>
+            </form>
+        </div>
+        <div class="table-responsive">
+            <table class="table msp-table mb-0">
+                <thead><tr><th>Задача</th><th>Срок</th><th>Статус</th><th style="width:180px;"></th></tr></thead>
+                <tbody>
+                    {% for task in tasks %}
+                        <tr class="{% if task.status == 'done' %}row-done{% endif %}">
+                            <td>{{ task.title }}</td>
+                            <td class="{% if task.is_overdue %}text-danger{% endif %}">{{ task.due_date.strftime('%d.%m.%Y') if task.due_date else '—' }}</td>
+                            <td>
+                                {% if task.status == 'done' %}<span class="badge badge-msp-green">Выполнена</span>
+                                {% elif task.is_overdue %}<span class="badge badge-msp-red">Просрочена</span>
+                                {% else %}<span class="badge badge-msp-orange">В работе</span>{% endif %}
+                            </td>
+                            <td class="text-end">
+                                <form method="post" action="{{ url_for('task_toggle', task_id=task.id) }}" class="inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button class="btn btn-sm btn-outline-msp">{{ 'Вернуть' if task.status == 'done' else 'Выполнить' }}</button>
+                                </form>
+                                <form method="post" action="{{ url_for('task_delete', task_id=task.id) }}" class="inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button class="btn btn-sm btn-outline-danger" data-confirm="Удалить задачу?"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="4" class="text-muted text-center py-3">Задач нет</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

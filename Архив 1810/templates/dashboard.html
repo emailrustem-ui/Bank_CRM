@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}Дашборд{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Рабочий день</h1>
+        <p class="subtitle">Компании, заявки и задачи в одном месте</p>
+    </div>
+    <a href="{{ url_for('company_new') }}" class="btn btn-msp">
+        <i class="bi bi-plus-lg"></i> Новая компания по ИНН
+    </a>
+</div>
+
+<!-- СТАТЫ -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6 col-xl-3">
+        <div class="stat-card stat-blue">
+            <div class="stat-label">Компаний в CRM</div>
+            <div class="stat-value">{{ companies_count }}</div>
+            <a href="{{ url_for('companies') }}" class="small mt-2 d-inline-block">Открыть список →</a>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <div class="stat-card stat-green">
+            <div class="stat-label">Доступно продуктов</div>
+            <div class="stat-value">{{ allowed_count }}</div>
+            <div class="small text-muted mt-2">по всем проверенным компаниям</div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <div class="stat-card stat-orange">
+            <div class="stat-label">Заявок в работе</div>
+            <div class="stat-value">{{ active_deals }}</div>
+            <a href="{{ url_for('deals_page') }}" class="small mt-2 d-inline-block">Все заявки →</a>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <div class="stat-card">
+            <div class="stat-label">Открытых задач</div>
+            <div class="stat-value">{{ open_tasks|length }}{% if overdue_count %}<span class="badge badge-msp-red ms-2">{{ overdue_count }} просрочено</span>{% endif %}</div>
+            <a href="{{ url_for('tasks_page') }}" class="small mt-2 d-inline-block">Все задачи →</a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- ВОРОНКА -->
+    <div class="col-lg-7">
+        <div class="msp-card">
+            <div class="msp-card-header">
+                <h3><i class="bi bi-funnel-fill text-primary me-2"></i>Воронка заявок</h3>
+                <a href="{{ url_for('reports_page') }}" class="small">Отчёты →</a>
+            </div>
+            <div class="msp-card-body p-0">
+                <table class="table table-sm msp-table mb-0">
+                    <thead>
+                        <tr><th style="width:35%">Статус</th><th style="width:35%">Доля</th><th>Заявок</th><th>Сумма</th></tr>
+                    </thead>
+                    <tbody>
+                        {% set max_count = funnel | map(attribute='count') | list | max %}
+                        {% for item in funnel %}
+                            <tr>
+                                <td><strong>{{ item.label }}</strong></td>
+                                <td>
+                                    <div class="progress-thin">
+                                        <div class="progress-bar" style="width: {{ (item.count * 100) // (max_count if max_count else 1) }}%"></div>
+                                    </div>
+                                </td>
+                                <td><span class="badge badge-msp-blue">{{ item.count }}</span></td>
+                                <td class="text-muted small">{{ item.amount | money }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ПОСЛЕДНИЕ КОМПАНИИ -->
+        <div class="msp-card">
+            <div class="msp-card-header">
+                <h3><i class="bi bi-building me-2"></i>Последние компании</h3>
+                <a href="{{ url_for('companies') }}" class="small">Все →</a>
+            </div>
+            <div class="msp-card-body p-0">
+                {% if recent_companies %}
+                    <table class="table table-sm msp-table mb-0">
+                        <tbody>
+                            {% for company in recent_companies %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ url_for('company_detail', company_id=company.id) }}" class="company-link">
+                                            {{ company.display_name }}
+                                        </a>
+                                        <div class="small text-muted">ИНН {{ company.inn }}</div>
+                                    </td>
+                                    <td><span class="badge badge-msp-blue">{{ company.status_label }}</span></td>
+                                    <td class="text-end">
+                                        {% if company.allowed_products_count %}
+                                            <span class="badge badge-msp-green">{{ company.allowed_products_count }} доступно</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="empty-state">
+                        <i class="bi bi-building" style="font-size:32px; opacity:0.3;"></i>
+                        <p class="mt-2">Пока нет компаний. <a href="{{ url_for('company_new') }}">Добавьте первую по ИНН</a></p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ПРАВАЯ КОЛОНКА -->
+    <div class="col-lg-5">
+        <!-- СРОКИ ЗАЯВОК -->
+        <div class="msp-card">
+            <div class="msp-card-header">
+                <h3><i class="bi bi-clock-history me-2"></i>Сроки заявок</h3>
+                <a href="{{ url_for('deals_page') }}" class="small">Все →</a>
+            </div>
+            <div class="msp-card-body">
+                {% if reminders %}
+                    <div class="list-group list-group-flush">
+                        {% for deal in reminders %}
+                            {% set days = (deal.term_date - now.date()).days %}
+                            <div class="list-group-item px-0 py-2 border-0">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <a href="{{ url_for('company_detail', company_id=deal.company_id, tab='deals') }}" class="fw-semibold">
+                                            {{ deal.company.display_name }}
+                                        </a>
+                                        <div class="small text-muted">
+                                            {{ deal.product.name if deal.product else 'без продукта' }} · {{ deal.status_label }}
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        {% if days < 0 %}
+                                            <span class="badge badge-msp-red">просрочено {{ days | abs }} дн.</span>
+                                        {% elif days == 0 %}
+                                            <span class="badge badge-msp-orange">сегодня</span>
+                                        {% else %}
+                                            <span class="badge badge-msp-orange">через {{ days }} дн.</span>
+                                        {% endif %}
+                                        <div class="small text-muted mt-1">{{ deal.term_date.strftime('%d.%m.%Y') }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <i class="bi bi-check-circle" style="font-size:32px; opacity:0.3;"></i>
+                        <p class="mt-2 mb-0">Ближайших и просроченных сроков нет</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- ЖУРНАЛ СТАТУСОВ -->
+        <div class="msp-card">
+            <div class="msp-card-header">
+                <h3><i class="bi bi-journal-text me-2"></i>Журнал статусов</h3>
+                <a href="{{ url_for('deals_page') }}" class="small">Вся лента →</a>
+            </div>
+            <div class="msp-card-body">
+                {% if status_logs %}
+                    {% for log in status_logs %}
+                        <div class="timeline-item">
+                            <div class="timeline-dot"></div>
+                            <div class="flex-grow-1">
+                                <div class="small text-muted">
+                                    {{ log.created_at.strftime('%d.%m.%Y %H:%M') }}
+                                    · {{ log.user.full_name or log.user.username if log.user else 'система' }}
+                                </div>
+                                <div class="fw-semibold">
+                                    <a href="{{ url_for('company_detail', company_id=log.company_id, tab='deals') }}">
+                                        {{ log.company.display_name }}
+                                    </a>
+                                </div>
+                                <div class="small">
+                                    {% if log.old_status %}
+                                        {{ deal_statuses.get(log.old_status, log.old_status) }} →
+                                    {% else %}
+                                        создана →
+                                    {% endif %}
+                                    <strong class="text-primary">{{ deal_statuses.get(log.new_status, log.new_status) }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">Изменений статусов пока не было</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- ЗАДАЧИ -->
+        <div class="msp-card">
+            <div class="msp-card-header">
+                <h3><i class="bi bi-check2-square me-2"></i>Ближайшие задачи</h3>
+                <a href="{{ url_for('tasks_page') }}" class="small">Все →</a>
+            </div>
+            <div class="msp-card-body p-0">
+                {% if open_tasks %}
+                    <div class="list-group list-group-flush">
+                        {% for task in open_tasks %}
+                            <div class="list-group-item px-3 py-2 border-0 d-flex align-items-center gap-2">
+                                <form method="post" action="{{ url_for('task_toggle', task_id=task.id) }}" class="inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button class="check-btn" title="Выполнить">✓</button>
+                                </form>
+                                <div class="flex-grow-1">
+                                    <a href="{{ url_for('company_detail', company_id=task.company_id) }}" class="fw-semibold small">
+                                        {{ task.company.display_name }}
+                                    </a>
+                                    <div class="small text-muted">{{ task.title }}</div>
+                                </div>
+                                <div class="text-end">
+                                    {% if task.due_date %}
+                                        <span class="{% if task.is_overdue %}text-danger{% else %}text-muted{% endif %} small">
+                                            {{ task.due_date.strftime('%d.%m.%Y') }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted small">без срока</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">Задач нет. Хороший момент, чтобы позвонить клиентам.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

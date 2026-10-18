@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block title %}Шаблоны писем{% endblock %}
+{% block page_title %}Шаблоны писем{% endblock %}
+
+{% block content %}
+<style>
+    .tpl-wrap { display: grid; grid-template-columns: 400px 1fr; gap: 20px; align-items: start; }
+    @media (max-width: 1000px) { .tpl-wrap { grid-template-columns: 1fr; } }
+
+    .tpl-card { background: #fff; border: 1px solid #e3e8ef; border-radius: 12px;
+                box-shadow: 0 2px 10px rgba(16,42,77,.05); overflow: hidden; }
+    .tpl-card-head { display: flex; align-items: center; justify-content: space-between;
+                     gap: 10px; padding: 14px 18px; border-bottom: 1px solid #e3e8ef; }
+    .tpl-card-head h3 { margin: 0; font-size: 15px; font-weight: 650; color: #0b2545; }
+    .tpl-card-body { padding: 18px; }
+
+    .tpl-item { padding: 12px 18px; border-bottom: 1px solid #e3e8ef; }
+    .tpl-item:last-child { border-bottom: none; }
+    .tpl-item:hover { background: #fafcff; }
+    .tpl-name { font-weight: 600; color: #0b2545; text-decoration: none;
+                display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+    .tpl-name:hover { color: #1f6feb; }
+    .tpl-subj { color: #6b7785; font-size: 12px; margin-top: 3px;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tpl-meta { color: #9aa5b1; font-size: 11.5px; margin-top: 6px;
+                display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .tpl-item-actions { margin-top: 8px; display: flex; gap: 8px; }
+
+    .tpl-badge { display: inline-block; padding: 2px 9px; border-radius: 20px;
+                 font-size: 11px; font-weight: 600; background: #e5f5ec; color: #1a7f4b; }
+    .tpl-badge.gray { background: #eef1f5; color: #6b7785; }
+
+    .tpl-form label { display: block; margin: 0 0 14px; font-size: 12.5px;
+                      color: #6b7785; font-weight: 600; }
+    .tpl-form input[type="text"], .tpl-form textarea {
+        width: 100%; padding: 9px 11px; border: 1px solid #e3e8ef; border-radius: 8px;
+        font-size: 13px; font-family: inherit; color: #1c2733; background: #fff;
+        outline: none; margin-top: 5px; display: block; box-sizing: border-box;
+    }
+    .tpl-form input:focus, .tpl-form textarea:focus {
+        border-color: #1f6feb; box-shadow: 0 0 0 3px rgba(31,111,235,.12);
+    }
+    .tpl-form textarea { min-height: 300px; resize: vertical; line-height: 1.55; }
+    .tpl-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 700px) { .tpl-row2 { grid-template-columns: 1fr; } }
+
+    .tpl-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .tpl-chip { border: 1px solid #e3e8ef; background: #f8fafc; border-radius: 6px;
+                padding: 4px 9px; font-size: 11.5px; font-family: Consolas, monospace;
+                color: #13315c; cursor: pointer; }
+    .tpl-chip:hover { background: #e8f1ff; border-color: #1f6feb; }
+
+    .tpl-box { background: #f8fafc; border: 1px solid #e3e8ef; border-radius: 9px;
+               padding: 12px 14px; font-size: 12.5px; color: #1c2733; }
+    .tpl-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .tpl-table th { text-align: left; padding: 8px 10px; background: #fafbfc; color: #6b7785;
+                    font-size: 11px; text-transform: uppercase; letter-spacing: .3px;
+                    border-bottom: 1px solid #e3e8ef; }
+    .tpl-table td { padding: 8px 10px; border-bottom: 1px solid #e3e8ef; }
+
+    .tpl-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+    .tpl-btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px;
+               border-radius: 8px; border: 1px solid transparent; font-size: 13px;
+               font-weight: 600; cursor: pointer; text-decoration: none; }
+    .tpl-btn.primary { background: #1f6feb; color: #fff; }
+    .tpl-btn.primary:hover { background: #1a60d0; }
+    .tpl-btn.ghost { background: transparent; color: #6b7785; }
+    .tpl-btn.ghost:hover { background: #eef1f5; color: #1c2733; }
+    .tpl-btn.danger { background: #fdeced; color: #c62f38; }
+    .tpl-btn.danger:hover { background: #f9d8db; }
+    .tpl-btn.sm { padding: 5px 10px; font-size: 12px; }
+
+    .tpl-muted { color: #6b7785; font-size: 12px; }
+    .tpl-pre { white-space: pre-wrap; word-break: break-word; }
+    .tpl-count { float: right; color: #9aa5b1; font-weight: 400; font-size: 11px; }
+    .tpl-file { display: block; margin-top: 6px; font-size: 12.5px; color: #1c2733; }
+    .tpl-h { font-size: 12.5px; font-weight: 650; color: #0b2545; margin: 0 0 8px; }
+</style>
+
+<div class="page-head" style="display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:22px;">
+    <div>
+        <h1 style="margin:0 0 6px; font-size:26px;">Шаблоны писем</h1>
+        <div class="tpl-muted">Тексты, темы и вложения для быстрой отправки писем из карточек компаний</div>
+    </div>
+    {% if selected %}
+        <a href="{{ url_for('templates_page') }}" class="tpl-btn primary">＋ Создать новый шаблон</a>
+    {% endif %}
+</div>
+
+<div class="tpl-wrap">
+
+    <!-- ================= СПИСОК ШАБЛОНОВ ================= -->
+    <div class="tpl-card">
+        <div class="tpl-card-head">
+            <h3>Сохранённые шаблоны</h3>
+            <span class="tpl-badge gray">{{ templates|length }} шт.</span>
+        </div>
+
+        {% for item in templates %}
+            <div class="tpl-item">
+                <a class="tpl-name" href="{{ url_for('templates_page', edit=item.id) }}">
+                    {{ item.name }}
+                    {% if item.is_default %}<span class="tpl-badge">по умолчанию</span>{% endif %}
+                </a>
+                <div class="tpl-subj">Тема: {{ item.subject or '—' }}</div>
+                <div class="tpl-meta">
+                    <span>📎 вложений: {{ item.attachments|length }}</span>
+                    <span>обновлён: {{ item.updated_at.strftime('%d.%m.%Y') if item.updated_at else '—' }}</span>
+                </div>
+                <div class="tpl-item-actions">
+                    <a href="{{ url_for('templates_page', edit=item.id) }}" class="tpl-btn ghost sm">Изменить</a>
+                    <form method="post" action="{{ url_for('template_delete', template_id=item.id) }}"
+                          style="display:inline"
+                          onsubmit="return confirm('Удалить шаблон «{{ item.name }}» вместе с вложениями?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="tpl-btn danger sm">Удалить</button>
+                    </form>
+                </div>
+            </div>
+        {% else %}
+            <div class="tpl-card-body tpl-muted">Шаблонов нет — создайте первый в форме справа.</div>
+        {% endfor %}
+
+        <div class="tpl-card-body" style="border-top:1px solid #e3e8ef;">
+            <div class="tpl-box">
+                <div class="tpl-h">Как это работает</div>
+                <ul style="margin:0; padding-left:18px; line-height:1.7;">
+                    <li>Шаблон «по умолчанию» подставляется при открытии письма из карточки компании.</li>
+                    <li>Переменные <code>{{ '{{ … }}' }}</code> заменяются данными компании и контакта при отправке.</li>
+                    <li>Прикреплённые файлы автоматически добавляются к черновику Outlook.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= РЕДАКТОР ================= -->
+    <div class="tpl-card">
+        <div class="tpl-card-head">
+            <h3>{{ 'Редактирование: ' ~ selected.name if selected else 'Новый шаблон' }}</h3>
+            {% if selected %}
+                <a href="{{ url_for('templates_page') }}" class="tpl-btn ghost sm">Закрыть</a>
+            {% endif %}
+        </div>
+
+        <div class="tpl-card-body">
+            <form method="post" action="{{ url_for('templates_page') }}"
+                  enctype="multipart/form-data" class="tpl-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="template_id" value="{{ selected.id if selected else '' }}">
+
+                <div class="tpl-row2">
+                    <label>Название шаблона
+                        <input type="text" name="name"
+                               value="{{ selected.name if selected else '' }}"
+                               placeholder="Например: Первичное обращение" required>
+                    </label>
+                    <label>Тема письма
+                        <input type="text" name="subject" id="templateSubject"
+                               value="{{ selected.subject if selected else default_subject }}">
+                    </label>
+                </div>
+
+                <label>Текст письма
+                    <span class="tpl-count"><span id="charCount">0</span> символов</span>
+                    <textarea name="body" id="templateBody">{{ selected.body if selected else default_body }}</textarea>
+                </label>
+
+                <div class="tpl-box" style="margin-bottom:14px;">
+                    <div class="tpl-h">Переменные — клик вставляет токен в текст в место курсора</div>
+                    <div class="tpl-chips">
+                        <button type="button" class="tpl-chip" data-var="greeting" title="Уважаемый / Уважаемая Имя Отчество">{{ '{{ greeting }}' }}</button>
+                        <button type="button" class="tpl-chip" data-var="first_name" title="Имя контакта">{{ '{{ first_name }}' }}</button>
+                        <button type="button" class="tpl-chip" data-var="full_name" title="ФИО полностью">{{ '{{ full_name }}' }}</button>
+                        <button type="button" class="tpl-chip" data-var="position" title="Должность контакта">{{ '{{ position }}' }}</button>
+                        <button type="button" class="tpl-chip" data-var="company_name" title="Название компании">{{ '{{ company_name }}' }}</button>
+                        <button type="button" class="tpl-chip" data-var="inn" title="ИНН компании">{{ '{{ inn }}' }}</button>
+                        <button type="button" class="tpl-chip" data-var="ogrn" title="ОГРН компании">{{ '{{ ogrn }}' }}</button>
+                        <button type="button" class="tpl-chip" data-var="director" title="Руководитель компании">{{ '{{ director }}' }}</button>
+                        <button type="button" class="tpl-chip" data-var="product" title="Продукт банка">{{ '{{ product }}' }}</button>
+                        <button type="button" class="tpl-chip" data-var="manager" title="Имя менеджера">{{ '{{ manager }}' }}</button>
+                        <button type="button" class="tpl-chip" data-var="date" title="Текущая дата">{{ '{{ date }}' }}</button>
+                    </div>
+                </div>
+
+                <div class="tpl-actions" style="margin-bottom:14px;">
+                    <button type="button" class="tpl-btn ghost sm" id="previewToggle">👁 Предпросмотр с примером данных</button>
+                </div>
+                <div id="previewBox" class="tpl-box" style="display:none; margin-bottom:14px;">
+                    <div class="tpl-muted" style="margin-bottom:4px;">Тема:</div>
+                    <div id="previewSubject" style="margin-bottom:10px; font-weight:600;"></div>
+                    <div class="tpl-muted" style="margin-bottom:4px;">Текст:</div>
+                    <div id="previewBody" class="tpl-pre" style="font-size:12.5px;"></div>
+                </div>
+
+                <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
+                    <input type="checkbox" name="is_default" style="width:auto; margin:0;"
+                           {% if selected and selected.is_default %}checked{% endif %}>
+                    Использовать по умолчанию
+                </label>
+
+                <div class="tpl-box" style="margin-bottom:14px;">
+                    <div class="tpl-h">Вложения шаблона</div>
+                    <div class="tpl-muted" style="margin-bottom:8px;">
+                        Файлы будут автоматически добавлены к черновику Outlook при отправке письма по этому шаблону.
+                    </div>
+
+                    {% if selected and selected.attachments %}
+                        <table class="tpl-table" style="margin-bottom:10px;">
+                            <thead>
+                                <tr><th>Файл</th><th style="width:90px">Размер</th><th style="width:60px"></th></tr>
+                            </thead>
+                            <tbody>
+                                {% for att in selected.attachments %}
+                                    <tr>
+                                        <td>📎 {{ att.original_name or att.filename }}</td>
+                                        <td class="tpl-muted">{{ (att.file_size or 0) // 1024 }} КБ</td>
+                                        <td style="text-align:right;">
+                                            <form method="post" style="display:inline"
+                                                  action="{{ url_for('template_attachment_delete', template_id=selected.id, att_id=att.id) }}"
+                                                  onsubmit="return confirm('Удалить вложение?');">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="tpl-btn danger sm">✕</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% endif %}
+
+                    <label style="margin:0; font-weight:600;">Добавить файлы (можно несколько)
+                        <input type="file" name="attachments" multiple class="tpl-file">
+                    </label>
+                </div>
+
+                <div class="tpl-actions">
+                    <button type="submit" class="tpl-btn primary">Сохранить шаблон</button>
+                    {% if selected %}
+                        <a href="{{ url_for('templates_page') }}" class="tpl-btn ghost">Отмена</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% raw %}
+<script>
+(function () {
+    var body = document.getElementById('templateBody');
+    var subject = document.getElementById('templateSubject');
+    var previewBox = document.getElementById('previewBox');
+    var previewSubject = document.getElementById('previewSubject');
+    var previewBody = document.getElementById('previewBody');
+    var toggle = document.getElementById('previewToggle');
+    var counter = document.getElementById('charCount');
+
+    function updateCounter() {
+        counter.textContent = (body.value || '').length;
+    }
+    updateCounter();
+
+    document.querySelectorAll('[data-var]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var token = '{{ ' + btn.getAttribute('data-var') + ' }}';
+            var start = body.selectionStart || 0;
+            var end = body.selectionEnd || 0;
+            body.value = body.value.slice(0, start) + token + body.value.slice(end);
+            body.focus();
+            body.selectionStart = body.selectionEnd = start + token.length;
+            updateCounter();
+            refreshPreview();
+        });
+    });
+
+    var SAMPLE = {
+        greeting: 'Уважаемый Иван Сергеевич!',
+        first_name: 'Иван',
+        full_name: 'Иванов Иван Сергеевич',
+        position: 'Генеральный директор',
+        company_name: 'ООО "Пример"',
+        inn: '7700000000',
+        ogrn: '1027700000000',
+        director: 'Иванов Иван Сергеевич',
+        product: 'Кредит на пополнение оборотных средств',
+        manager: 'Клиентский менеджер',
+        date: new Date().toLocaleDateString('ru-RU')
+    };
+
+    function render(text) {
+        return (text || '').replace(/\{\{\s*([a-zA-Z_]+)\s*\}\}/g, function (m, key) {
+            var k = key.toLowerCase();
+            return (SAMPLE[k] !== undefined) ? SAMPLE[k] : m;
+        });
+    }
+
+    function refreshPreview() {
+        if (previewBox.style.display === 'none') return;
+        previewSubject.textContent = render(subject.value);
+        previewBody.textContent = render(body.value);
+    }
+
+    toggle.addEventListener('click', function () {
+        var hidden = previewBox.style.display === 'none';
+        previewBox.style.display = hidden ? 'block' : 'none';
+        toggle.textContent = hidden
+            ? 'Скрыть предпросмотр'
+            : '👁 Предпросмотр с примером данных';
+        refreshPreview();
+    });
+
+    body.addEventListener('input', function () { updateCounter(); refreshPreview(); });
+    subject.addEventListener('input', refreshPreview);
+})();
+</script>
+{% endraw %}
+{% endblock %}

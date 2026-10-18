@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}{{ product.name }}{% endblock %}
+{% block page_title %}Продукт{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>{{ product.name }}</h1>
+        <p class="muted">Правила допустимости по ОКВЭД</p>
+    </div>
+    <a href="{{ url_for('products_page') }}" class="btn btn-ghost">← К продуктам</a>
+</div>
+
+{% if product.description %}
+<div class="card mb-4">
+    <div class="card-body pre-wrap">{{ product.description }}</div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-head">
+        <h3>Правила ОКВЭД</h3>
+        <input type="text" id="ruleFilter" placeholder="Поиск по коду или условию" class="input-sm">
+    </div>
+
+    <div class="table-wrap">
+        <table class="table table-sm" id="rulesTable">
+            <thead>
+                <tr>
+                    <th>Код ОКВЭД</th>
+                    <th>Статус</th>
+                    <th>Тип ОКВЭД</th>
+                    <th>Условия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rule in rules %}
+                    <tr data-search="{{ rule.code }} {{ rule.condition }} {{ rule.status_raw }}">
+                        <td><span class="code-chip">{{ rule.code }}</span></td>
+                        <td>
+                            {% if rule.status_norm == 'yes' %}
+                                <span class="badge badge-green">{{ rule.status_raw or 'ДА' }}</span>
+                            {% elif rule.status_norm == 'no' %}
+                                <span class="badge badge-red">{{ rule.status_raw or 'НЕТ' }}</span>
+                            {% elif rule.status_norm == 'mixed' %}
+                                <span class="badge badge-orange">{{ rule.status_raw or 'УСЛОВНО' }}</span>
+                            {% else %}
+                                <span class="badge badge-gray">{{ rule.status_raw or '—' }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="small">
+                            {% if rule.scope == 'additional' %}
+                                только дополнительный
+                            {% elif rule.scope == 'main' %}
+                                только основной
+                            {% else %}
+                                любой
+                            {% endif %}
+                        </td>
+                        <td class="pre-wrap small">{{ rule.condition }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="4" class="muted">Правила не найдены.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-head"><h3>Компании по этому продукту</h3></div>
+    <div class="table-wrap">
+        <table class="table table-sm">
+            <thead>
+                <tr><th>Компания</th><th>ИНН</th><th>Результат</th></tr>
+            </thead>
+            <tbody>
+                {% for check in checks %}
+                    <tr>
+                        <td><a href="{{ url_for('company_detail', company_id=check.company_id, tab='okved') }}">{{ check.company.display_name }}</a></td>
+                        <td>{{ check.company.inn }}</td>
+                        <td>
+                            {% if check.result == 'allowed' %}
+                                <span class="badge badge-green">Доступно</span>
+                            {% elif check.result == 'conditional' %}
+                                <span class="badge badge-orange">С условиями</span>
+                            {% elif check.result == 'forbidden' %}
+                                <span class="badge badge-red">Недоступно</span>
+                            {% else %}
+                                <span class="badge badge-gray">Нет данных</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="3" class="muted">Компании ещё не проверялись.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

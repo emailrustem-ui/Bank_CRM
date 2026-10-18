@@ -1,0 +1,259 @@
+{# Вкладка «Сведения»: паспорт компании, блоки карточки, активные ссылки, официальные источники #}
+<style>
+    .sv-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+    @media (max-width: 1000px) { .sv-grid2 { grid-template-columns: 1fr; } }
+    .sv-card { background: #fff; border: 1px solid #e3e8ef; border-radius: 12px;
+               box-shadow: 0 2px 10px rgba(16,42,77,.05); overflow: hidden; margin-bottom: 20px; }
+    .sv-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+                    padding: 14px 18px; border-bottom: 1px solid #e3e8ef; }
+    .sv-card-head h3 { margin: 0; font-size: 15px; font-weight: 650; color: #0b2545; }
+    .sv-card-body { padding: 18px; }
+    .sv-facts { display: grid; grid-template-columns: 210px 1fr; gap: 10px 16px; font-size: 13px; }
+    @media (max-width: 700px) { .sv-facts { grid-template-columns: 1fr; gap: 2px; } }
+    .sv-facts dt { color: #6b7785; font-size: 12px; }
+    .sv-facts dd { margin: 0; color: #1c2733; word-break: break-word; }
+    .sv-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .sv-chip { display: inline-block; border: 1px solid #e3e8ef; background: #f8fafc; border-radius: 6px;
+               padding: 4px 9px; font-size: 11.5px; color: #13315c; text-decoration: none; }
+    .sv-chip:hover { background: #e8f1ff; border-color: #1f6feb; }
+    .sv-chip.static { background: #eef1f5; color: #35506b; cursor: default; }
+    .sv-pre { white-space: pre-wrap; word-break: break-word; font-size: 12.5px; color: #1c2733; }
+    .sv-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .sv-table th { text-align: left; padding: 8px 12px; background: #fafbfc; color: #6b7785;
+                   font-size: 11px; text-transform: uppercase; letter-spacing: .3px;
+                   border-bottom: 1px solid #e3e8ef; }
+    .sv-table td { padding: 8px 12px; border-bottom: 1px solid #e3e8ef; }
+    .sv-muted { color: #6b7785; font-size: 12px; }
+    .sv-a { color: #1f6feb; text-decoration: none; font-size: 12px; }
+    .sv-a:hover { text-decoration: underline; }
+</style>
+
+<div class="pane" data-pane="extra">
+    {% set sec = extra.get('sections', {}) %}
+    {% set counts = extra.get('counts', {}) %}
+    {% set salary = extra.get('salary', []) %}
+    {% set slinks = extra.get('links', {}) %}
+    {% set src_url = extra.get('url', '') %}
+
+    {% if sec or counts or salary or src_url %}
+
+        <!-- ================= ПАСПОРТ КОМПАНИИ ================= -->
+        <div class="sv-card">
+            <div class="sv-card-head">
+                <h3>Паспорт компании</h3>
+                {% if src_url %}
+                    <a class="sv-a" href="{{ src_url }}" target="_blank" rel="noopener">Открыть карточку в источнике ↗</a>
+                {% endif %}
+            </div>
+            <div class="sv-card-body">
+                <dl class="sv-facts">
+                    <dt>Статус</dt>
+                    <dd>{{ (sec.get('status','').split('\n') | select | list | first | default('Действующая компания', true)) }}</dd>
+
+                    <dt>ОПФ</dt>
+                    <dd>{{ (sec.get('opf','').split('\n') | select | list | first | default('—', true)) }}</dd>
+
+                    <dt>ИНН / ОГРН</dt>
+                    <dd>{{ company.inn }} / {{ company.ogrn or '—' }}</dd>
+
+                    <dt>Дата регистрации</dt>
+                    <dd>{{ company.reg_date or '—' }}</dd>
+
+                    <dt>Руководитель</dt>
+                    <dd>{{ company.director or '—' }}</dd>
+
+                    {% if sec.get('management') %}
+                        <dt>Управляющая организация</dt>
+                        <dd>{{ sec['management'].split('\n') | select | list | first }}</dd>
+                    {% endif %}
+
+                    {% if sec.get('registrar') %}
+                        <dt>Держатель реестра акционеров</dt>
+                        <dd>{{ sec['registrar'].split('\n') | select | list | first }}</dd>
+                    {% endif %}
+
+                    <dt>Адрес</dt>
+                    <dd>
+                        {{ company.address or '—' }}
+                        {% if company.address %}
+                            <br><a class="sv-a" target="_blank" rel="noopener"
+                                   href="https://yandex.ru/maps/?text={{ company.address | urlencode }}">Показать на карте ↗</a>
+                        {% endif %}
+                    </dd>
+
+                    <dt>Телефон</dt>
+                    <dd>
+                        {% if company.phone %}
+                            <a class="sv-a" href="tel:{{ company.phone.split(';')[0] | replace(' ', '') | replace('(', '') | replace(')', '') | replace('-', '') }}">{{ company.phone }}</a>
+                        {% else %}—{% endif %}
+                    </dd>
+
+                    <dt>E-mail</dt>
+                    <dd>
+                        {% if company.email %}
+                            <a class="sv-a" href="mailto:{{ company.email.split(';')[0].strip() }}">{{ company.email }}</a>
+                        {% else %}—{% endif %}
+                    </dd>
+
+                    <dt>Сайт</dt>
+                    <dd>
+                        {% if company.site %}
+                            <a class="sv-a" target="_blank" rel="noopener"
+                               href="http://{{ company.site.split(',')[0].strip() | replace('http://','') | replace('https://','') }}">{{ company.site }}</a>
+                        {% else %}—{% endif %}
+                    </dd>
+
+                    <dt>Основной ОКВЭД</dt>
+                    <dd>{{ company.okved_main_code or '—' }}{% if company.okved_main_title %} — {{ company.okved_main_title }}{% endif %}</dd>
+
+                    <dt>Численность</dt>
+                    <dd>{{ company.employee_count or '—' }}</dd>
+
+                    <dt>Налоги и сборы</dt>
+                    <dd>{{ sec.get('taxes','').split('\n') | select | list | slice(2) | list | join(' · ') or '—' }}</dd>
+
+                    <dt>Спецрежим</dt>
+                    <dd>{{ (sec.get('tax_regime','').split('\n') | select | list | first | default('—', true)) }}</dd>
+
+                    <dt>Реестр МСП</dt>
+                    <dd>{{ (sec.get('msp','').split('\n') | select | list | first | default('—', true)) }}</dd>
+
+                    <dt>Госзакупки</dt>
+                    <dd>{{ (sec.get('goszakupki','').split('\n') | select | list | first | default('—', true)) }}</dd>
+
+                    <dt>Федресурс</dt>
+                    <dd>{{ (sec.get('fedresurs','').split('\n') | select | list | first | default('—', true)) }}</dd>
+
+                    <dt>Арбитражные дела</dt>
+                    <dd>{{ (sec.get('arbitration','').split('\n') | select | list | first | default('—', true)) }}</dd>
+
+                    <dt>Санкции</dt>
+                    <dd>{{ (sec.get('sanctions','').split('\n') | select | list | first | default('—', true)) }}</dd>
+
+                    <dt>Банкротство (ЕФРСБ)</dt>
+                    <dd>{{ (sec.get('bankruptcy','').split('\n') | select | list | first | default('—', true)) }}</dd>
+
+                    <dt>Блокировки счетов</dt>
+                    <dd>{{ (sec.get('accounts','').split('\n') | select | list | first | default('—', true)) }}</dd>
+
+                    <dt>Лицензии / знаки / лизинг / залоги</dt>
+                    <dd>
+                        {{ counts.get('Лицензии', '—') }} /
+                        {{ counts.get('Товарные знаки', '—') }} /
+                        {{ counts.get('Лизинг', '—') }} /
+                        {{ counts.get('Залоги', '—') }}
+                    </dd>
+
+                    {% if company.founders %}
+                        <dt>Учредители</dt>
+                        <dd class="sv-pre">{{ company.founders }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+
+        <!-- ================= СЧЁТЧИКИ ================= -->
+        {% if counts %}
+            <div class="sv-card">
+                <div class="sv-card-head"><h3>Показатели карточки</h3></div>
+                <div class="sv-card-body sv-chips" style="margin-top:0;">
+                    {% for name, value in counts.items() %}
+                        <span class="sv-chip static">{{ name }}: {{ value }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- ================= БЛОКИ КАРТОЧКИ С АКТИВНЫМИ ССЫЛКАМИ ================= -->
+        {% set section_titles = [
+            ('reliability', 'Оценка надёжности'),
+            ('sanctions', 'Санкции'),
+            ('bankruptcy', 'ЕФРСБ (реестр банкротств)'),
+            ('accounts', 'Блокировка банковских счетов'),
+            ('taxes', 'Налоги и сборы'),
+            ('tax_regime', 'Специальный налоговый режим'),
+            ('arbitration', 'Арбитражные дела'),
+            ('fssp', 'ФССП / исполнительные производства'),
+            ('checks', 'Проверки и КНМ'),
+            ('goszakupki', 'Госзакупки'),
+            ('fedresurs', 'Федресурс'),
+            ('licenses', 'Лицензии'),
+            ('trademarks', 'Товарные знаки'),
+            ('leasing', 'Лизинг'),
+            ('pledges', 'Залоги'),
+            ('msp', 'Реестр МСП'),
+            ('management', 'Управляющая организация'),
+            ('registrar', 'Держатель реестра акционеров'),
+            ('opf', 'Организационно-правовая форма'),
+            ('vacancies', 'Вакансии'),
+            ('history', 'История изменений')
+        ] %}
+
+        <div class="sv-grid2">
+            {% for key, title in section_titles %}
+                {% if sec.get(key) %}
+                    <div class="sv-card" style="margin-bottom:0;">
+                        <div class="sv-card-head"><h3>{{ title }}</h3></div>
+                        <div class="sv-card-body">
+                            <div class="sv-pre">{{ sec.get(key) }}</div>
+                            {% if slinks.get(key) %}
+                                <div class="sv-chips">
+                                    {% for lnk in slinks[key] %}
+                                        <a class="sv-chip" href="{{ lnk.h }}" target="_blank" rel="noopener">{{ lnk.t }} ↗</a>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <!-- ================= ЗАРПЛАТА ПО ГОДАМ ================= -->
+        {% if salary %}
+            <div class="sv-card" style="margin-top:20px;">
+                <div class="sv-card-head"><h3>Среднемесячная зарплата и численность по годам</h3></div>
+                <table class="sv-table">
+                    <thead><tr><th>Год</th><th>Численность</th><th>Зарплата</th></tr></thead>
+                    <tbody>
+                        {% for row in salary %}
+                            <tr><td>{{ row.year }}</td><td>{{ row.headcount }}</td><td>{{ row.salary }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
+        <!-- ================= ОФИЦИАЛЬНЫЕ ИСТОЧНИКИ ================= -->
+        <div class="sv-card">
+            <div class="sv-card-head"><h3>Актуальные данные в официальных источниках</h3></div>
+            <div class="sv-card-body sv-chips" style="margin-top:0;">
+                {% if src_url %}
+                    <a class="sv-chip" href="{{ src_url }}" target="_blank" rel="noopener">Карточка в источнике данных ↗</a>
+                {% endif %}
+                {% if company.address %}
+                    <a class="sv-chip" target="_blank" rel="noopener"
+                       href="https://yandex.ru/maps/?text={{ company.address | urlencode }}">Яндекс.Карты ↗</a>
+                {% endif %}
+                <a class="sv-chip" target="_blank" rel="noopener"
+                   href="https://kad.arbitr.ru/Kad/SearchInstances?Answer=1&amp;Istcs[0].Type=1&amp;Istcs[0].Value={{ company.inn }}">Арбитраж (КАД) по ИНН ↗</a>
+                <a class="sv-chip" target="_blank" rel="noopener"
+                   href="https://rmsp.nalog.ru/search.html?inn={{ company.inn }}">Реестр МСП ↗</a>
+                <a class="sv-chip" target="_blank" rel="noopener"
+                   href="https://pb.nalog.ru/search.html?text={{ company.inn }}">Прозрачный бизнес (ФНС) ↗</a>
+                <a class="sv-chip" target="_blank" rel="noopener"
+                   href="https://zakupki.gov.ru/epz/supplier/search/results.html?searchString={{ company.inn }}">Госзакупки по ИНН ↗</a>
+                <a class="sv-chip" target="_blank" rel="noopener"
+                   href="https://fedresurs.ru/searchresult?searchText={{ company.inn }}">Федресурс ↗</a>
+            </div>
+        </div>
+
+    {% else %}
+        <div class="sv-card">
+            <div class="sv-card-body sv-muted" style="text-align:center; padding:30px;">
+                Дополнительные сведения появятся после обновления данных компании
+                (кнопка «↻ Обновить данные»).
+            </div>
+        </div>
+    {% endif %}
+</div>

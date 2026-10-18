@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Вход в CRM{% endblock %}
+
+{% block auth_content %}
+<div class="auth-card">
+    <div class="auth-logo">Б</div>
+    <h1>CRM клиентского менеджера</h1>
+    <p class="muted">Войдите в рабочую систему</p>
+
+    <form method="post" class="form-stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <label>
+            Логин
+            <input type="text" name="username" required autocomplete="username">
+        </label>
+
+        <label>
+            Пароль
+            <input type="password" name="password" required autocomplete="current-password">
+        </label>
+
+        <button class="btn btn-primary btn-full" type="submit">Войти</button>
+    </form>
+
+    <p class="auth-hint">Первый запуск: <b>manager</b> / <b>manager</b></p>
+</div>
+{% endblock %}

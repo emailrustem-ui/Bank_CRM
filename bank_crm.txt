@@ -1,0 +1,39 @@
+bank_crm/
+│
+├── requirements.txt
+├── config.py
+├── models.py
+├── app.py
+│
+├── services/
+│   ├── __init__.py
+│   ├── okved.py
+│   ├── checko.py
+│   └── mail.py
+│
+├── templates/
+│   ├── base.html
+│   ├── login.html
+│   ├── dashboard.html
+│   ├── companies_list.html
+│   ├── company_new.html
+│   ├── company_fetch.html
+│   ├── company_detail.html
+│   ├── compose.html
+│   ├── products.html
+│   ├── product_detail.html
+│   ├── tasks.html
+│   └── templates_page.html
+│
+├── static/
+│   ├── style.css
+│   └── app.js
+│
+├── tools/
+│   └── outlook_agent.py
+│
+└── data/                      ← создастся автоматически
+    ├── crm.db
+    ├── references/
+    ├── snapshots/
+    └── chrome_profile/

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Загрузка компании{% endblock %}
+{% block page_title %}Загрузка компании{% endblock %}
+
+{% block content %}
+<div class="card fetch-card">
+    <div class="card-body">
+        <div class="fetch-icon" id="fetchIcon">⏳</div>
+        <h2 id="fetchTitle">Получаем данные по ИНН</h2>
+        <p class="muted" id="fetchMessage">{{ job.message }}</p>
+
+        <div class="progress">
+            <div class="progress-bar" id="progressBar" style="width: {{ job.progress }}%"></div>
+        </div>
+
+        <div class="fetch-log small muted" id="fetchLog">
+            Идёт загрузка данных из внешнего источника…
+        </div>
+
+        <div id="fetchError" class="flash flash-danger mt-4" style="display:none"></div>
+
+        <div class="mt-4">
+            <a href="{{ url_for('companies') }}" class="btn btn-ghost">В список компаний</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    pollJob("{{ job_id }}", "{{ url_for('companies') }}");
+</script>
+{% endblock %}
