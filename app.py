@@ -7,7 +7,7 @@ import threading
 import time
 import uuid
 import webbrowser
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from flask import (
@@ -163,6 +163,14 @@ def _job_get(job_id):
     with JOBS_LOCK:
         job = JOBS.get(job_id)
         return dict(job) if job else None
+
+@app.route("/jobs/<job_id>")
+@login_required
+def job_status(job_id):
+    job = _job_get(job_id)
+    if not job:
+        return jsonify({"error": "Задача не найдена"}), 404
+    return jsonify(job)
 
 
 def _fetch_worker(job_id, inn, user_id, company_id=None):
