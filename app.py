@@ -33,6 +33,7 @@ from models import (
 )
 from services import okved as okved_service
 from services.checko import CheckoError, apply_scraped_data, scrape_company
+from services.phones import normalize_phone_field, tel_href
 from services.mail import (
     build_greeting, mailto_link, prepare_email, try_open_outlook,
 )
@@ -87,6 +88,12 @@ def money_filter(value):
     if not amount:
         return "—"
     return f"{amount:,.0f}".replace(",", " ") + " руб."
+
+
+@app.template_filter("telhref")
+def telhref_filter(value):
+    """Ссылка tel: из первого номера строки телефонов ('т1; т2' -> 'tel:+7...')."""
+    return tel_href(value)
 
 
 def _parse_amount(raw):
@@ -193,12 +200,11 @@ def _fetch_worker(job_id, inn, user_id, company_id=None):
             apply_scraped_data(company, data)
 
             # Нормализация телефонов: разделитель только ";"
-            raw_phones = str(data.get("phone") or "")
-            phone_parts = [p.strip() for p in raw_phones.split(";") if p.strip()]
-            if phone_parts:
-                company.phone = "; ".join(phone_parts)
+            phone_joined = normalize_phone_field(data.get("phone") or "")[:300]
+            if phone_joined:
+                company.phone = phone_joined
                 for contact in company.contacts:
-                    contact.phone = "; ".join(phone_parts)
+                    contact.phone = phone_joined
 
             db.session.commit()
 
@@ -627,7 +633,11 @@ def company_edit(company_id):
 
     for field, limit in fields.items():
         if field in request.form:
-            setattr(company, field, request.form.get(field, "").strip()[:limit])
+            value = request.form.get(field, "").strip()[:limit]
+            if field == "phone":
+                # Телефоны храним строго через ";"
+                value = normalize_phone_field(value)[:limit]
+            setattr(company, field, value)
 
     if request.form.get("status") in COMPANY_STATUSES:
         company.status = request.form["status"]
@@ -779,7 +789,7 @@ def contact_save(company_id):
 
     contact.full_name = request.form.get("full_name", "").strip()[:300]
     contact.position = request.form.get("position", "").strip()[:200]
-    contact.phone = request.form.get("phone", "").strip()[:300]
+    contact.phone = normalize_phone_field(request.form.get("phone", ""))[:300]
     contact.email = request.form.get("email", "").strip()[:300]
     contact.is_primary = request.form.get("is_primary") == "on"
 

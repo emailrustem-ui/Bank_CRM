@@ -84,7 +84,7 @@
                     <dt>Телефон</dt>
                     <dd>
                         {% if company.phone %}
-                            <a class="sv-a" href="tel:{{ company.phone.split(';')[0] | replace(' ', '') | replace('(', '') | replace(')', '') | replace('-', '') }}">{{ company.phone }}</a>
+                            <a class="sv-a" href="{{ company.phone | telhref }}">{{ company.phone }}</a>
                         {% else %}—{% endif %}
                     </dd>
 

@@ -652,6 +652,13 @@ def _split_list(value, limit=10):
     return result[:limit]
 
 
+def _join_phones(phones):
+    """Канонический вид строки телефонов: номера через '; '."""
+    from services.phones import join_phones
+
+    return join_phones(phones)
+
+
 def _is_error_page(text):
     lower = str(text or "").lower()
     return any(marker in lower for marker in ERROR_MARKERS)
@@ -1086,7 +1093,7 @@ def scrape_company(inn, log=None):
                 phones_list = _parse_phones_from_text(page_text)
 
             data["email"] = "; ".join(emails_list)
-            data["phone"] = "; ".join(phones_list)
+            data["phone"] = _join_phones(phones_list)
 
             block_sites = _js(driver, JS_SITES)
             cleaned_sites = _clean_sites(block_sites)
@@ -1163,7 +1170,7 @@ def apply_scraped_data(company, data):
     if emails_list:
         company.email = "; ".join(emails_list)
     if phones_list:
-        company.phone = "; ".join(phones_list)
+        company.phone = _join_phones(phones_list)
 
     finance_map = {
         "revenue": "revenue",
@@ -1216,7 +1223,7 @@ def apply_scraped_data(company, data):
     company.checko_updated_at = utcnow()
 
     director = (data.get("director") or "").strip()
-    phones_joined = "; ".join(phones_list)
+    phones_joined = _join_phones(phones_list)
 
     if emails_list or phones_list:
         first_email = emails_list[0] if emails_list else ""
