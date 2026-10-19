@@ -351,22 +351,15 @@ def init_database():
         _ensure_column("users", "role", "role VARCHAR(20) DEFAULT 'manager'")
 
         if not User.query.first():
-            import secrets as _secrets
-            default_password = os.getenv("CRM_DEFAULT_PASSWORD", "").strip()
-            generated = not default_password
-            if generated:
-                # Если пароль не задан в CRM_DEFAULT_PASSWORD — генерируем случайный
-                default_password = _secrets.token_urlsafe(12)
-            user = User(username="manager", full_name="Клиентский менеджер",
-                        is_enabled=True, must_change_password=True)
+            # Первый запуск: логин/пароль по умолчанию — "1"/"1".
+            # Логин всегда остаётся "1"; пароль можно переопределить через
+            # CRM_DEFAULT_PASSWORD (например, для установки без пароля "1").
+            default_password = os.getenv("CRM_DEFAULT_PASSWORD", "").strip() or "1"
+            user = User(username="1", full_name="Клиентский менеджер",
+                        is_enabled=True, must_change_password=False)
             user.set_password(default_password)
             db.session.add(user)
-            if generated:
-                # Случайный пароль показываем ОДИН раз при создании БД
-                print("Создан пользователь 'manager'. Временный пароль (смените при входе): "
-                      + default_password)
-            else:
-                print("Создан пользователь 'manager' (пароль из CRM_DEFAULT_PASSWORD).")
+            print("Создан пользователь по умолчанию. Логин: 1   Пароль: 1")
 
         if not MailTemplate.query.first():
             db.session.add(MailTemplate(
