@@ -1,11 +1,19 @@
 import argparse
 import json
+import os
 import traceback
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import win32com.client
 import pythoncom
 
-TOKEN = "crm-local-token"
+# Токен задаётся через переменную окружения OUTLOOK_AGENT_TOKEN
+# (или .env рядом с этим файлом). Должен совпадать со значением в CRM.
+TOKEN = os.getenv("OUTLOOK_AGENT_TOKEN", "").strip()
+if not TOKEN:
+    raise SystemExit(
+        "OUTLOOK_AGENT_TOKEN не задан. Укажите токен в переменной окружения "
+        "(тот же, что использует CRM) и перезапустите агент."
+    )
 OUTLOOK = None
 
 def get_outlook():

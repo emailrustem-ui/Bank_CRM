@@ -1,6 +1,0 @@
-2026/10/18-18:55:11.008 74fc Reusing MANIFEST C:\Users\user.DESKTOP-LB1PE85\Desktop\Проекты\Bank_CRM\data\chrome_profile\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
-2026/10/18-18:55:11.009 74fc Recovering log #130
-2026/10/18-18:55:11.009 74fc Reusing old log C:\Users\user.DESKTOP-LB1PE85\Desktop\Проекты\Bank_CRM\data\chrome_profile\Default\EdgeCoupons/coupons_data.db/000130.log 
-2026/10/18-18:55:11.185 740c Level-0 table #134: started
-2026/10/18-18:55:11.195 740c Level-0 table #134: 683376 bytes OK
-2026/10/18-18:55:11.197 740c Delete type=0 #130

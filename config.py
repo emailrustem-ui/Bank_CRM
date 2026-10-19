@@ -1,5 +1,15 @@
+import logging
 import os
+import secrets
 from pathlib import Path
+
+try:  # необязательная зависимость: .env подхватывается, если установлен
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent / ".env")
+except ImportError:
+    pass
+
+log = logging.getLogger("crm.config")
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
@@ -10,8 +20,27 @@ CHROME_PROFILE_DIR = DATA_DIR / "chrome_profile"
 ATTACHMENTS_DIR = DATA_DIR / "attachments"
 
 
+def _load_secret_key() -> str:
+    """SECRET_KEY обязателен. В dev допускается временный ключ (с предупреждением),
+    в production приложение не стартует без заданного секрета."""
+    key = os.getenv("CRM_SECRET_KEY", "").strip()
+    if key:
+        return key
+    if os.getenv("FLASK_ENV", "").lower() == "production" or os.getenv("CRM_FORCE_SECRET") == "1":
+        raise RuntimeError(
+            "Переменная CRM_SECRET_KEY не задана. Сгенерируйте ключ: "
+            "python -c \"import secrets; print(secrets.token_hex(32))\" и поместите в .env"
+        )
+    log.warning(
+        "CRM_SECRET_KEY не задан — используется временный ключ. "
+        "Сессии сбрасываются при каждом запуске. Для постоянной работы добавьте ключ в .env "
+        "(файл .env в git не попадает)."
+    )
+    return secrets.token_hex(32)
+
+
 class Config:
-    SECRET_KEY = os.getenv("CRM_SECRET_KEY", "change-this-secret-key-in-production")
+    SECRET_KEY = _load_secret_key()
 
     SQLALCHEMY_DATABASE_URI = f"sqlite:///{DATA_DIR / 'crm.db'}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -31,7 +60,15 @@ class Config:
 
     # --- Outlook ---
     OUTLOOK_AGENT_URL = os.getenv("OUTLOOK_AGENT_URL", "http://127.0.0.1:8765")
-    OUTLOOK_AGENT_TOKEN = os.getenv("OUTLOOK_AGENT_TOKEN", "crm-local-token")
+    # Токен агента обязателен (совпадает с OUTLOOK_AGENT_TOKEN у tools/outlook_agent.py)
+    OUTLOOK_AGENT_TOKEN = os.getenv("OUTLOOK_AGENT_TOKEN", "").strip()
+
+    # --- Загрузка файлов: белый список расширений ---
+    ALLOWED_UPLOAD_EXTENSIONS = {"xlsx", "xlsm", "csv"}
+    ALLOWED_ATTACHMENT_EXTENSIONS = {
+        "pdf", "doc", "docx", "xls", "xlsx", "xlsm", "ppt", "pptx",
+        "png", "jpg", "jpeg", "txt", "zip",
+    }
 
     # --- Вложения писем: Path-объект (используется с оператором /) ---
     ATTACHMENTS_DIR = ATTACHMENTS_DIR

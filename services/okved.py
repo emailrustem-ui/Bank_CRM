@@ -4,7 +4,7 @@ from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
 
-from models import db, Product, OkvedRule, OkvedCheck, ReferenceVersion, Company, CompanyOkved
+from models import db, utcnow, Product, OkvedRule, OkvedCheck, ReferenceVersion, Company, CompanyOkved
 
 CODE_RE = re.compile(r"\d{2}(?:\.\d{1,3}){0,3}")
 
@@ -280,7 +280,7 @@ def import_reference(file_path, filename):
 
         version = ReferenceVersion(
             filename=filename,
-            created_at=datetime.utcnow(),
+            created_at=utcnow(),
             is_active=True,
         )
         db.session.add(version)
@@ -591,7 +591,7 @@ def check_company(company):
         check.result = result
         check.detail = detail
         check.version_id = version.id
-        check.checked_at = datetime.utcnow()
+        check.checked_at = utcnow()
 
         results.append(check)
 

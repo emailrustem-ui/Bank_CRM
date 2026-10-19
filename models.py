@@ -1,11 +1,38 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
 
+
+def utcnow():
+    """Текущее время в UTC без tzinfo (совместимо с колонками db.DateTime).
+
+    Заменяет datetime.utcnow(), устаревший с Python 3.12.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 db = SQLAlchemy()
+
+
+def validate_inn(inn: str) -> bool:
+    """Проверка формата и контрольной суммы ИНН (10 цифр — юрлицо, 12 — ИП/физлицо)."""
+    if not inn or not inn.isdigit():
+        return False
+    digits = [int(c) for c in inn]
+    if len(digits) == 10:
+        weights = [2, 4, 10, 3, 5, 9, 4, 6, 8]
+        control = sum(w * d for w, d in zip(weights, digits[:9])) % 11 % 10
+        return control == digits[9]
+    if len(digits) == 12:
+        w11 = [7, 2, 4, 10, 3, 5, 9, 4, 6, 8]
+        c11 = sum(w * d for w, d in zip(w11, digits[:10])) % 11 % 10
+        w12 = [3, 7, 2, 4, 10, 3, 5, 9, 4, 6, 8]
+        c12 = sum(w * d for w, d in zip(w12, digits[:11])) % 11 % 10
+        return c11 == digits[10] and c12 == digits[11]
+    return False
 
 
 COMPANY_STATUSES = {
@@ -51,6 +78,10 @@ class User(UserMixin, db.Model):
     full_name = db.Column(db.String(200), default="")
     password_hash = db.Column(db.String(256), nullable=False)
     is_enabled = db.Column(db.Boolean, default=True)
+    # True для автоматически созданного аккаунта — потребовать смену пароля
+    must_change_password = db.Column(db.Boolean, default=False)
+    # "manager" | "admin" (админ может загружать справочники и удалять данные)
+    role = db.Column(db.String(20), default="manager")
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -95,8 +126,8 @@ class Company(db.Model):
     source = db.Column(db.String(30), default="manual")
 
     checko_updated_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
     manager_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
 
@@ -159,7 +190,7 @@ class Product(db.Model):
     name = db.Column(db.String(300), unique=True, nullable=False)
     description = db.Column(db.Text, default="")
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     rules = db.relationship("OkvedRule", backref="product", lazy="select")
 
@@ -169,7 +200,7 @@ class ReferenceVersion(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     filename = db.Column(db.String(300))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
     product_count = db.Column(db.Integer, default=0)
     rule_count = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=False)
@@ -203,7 +234,7 @@ class OkvedCheck(db.Model):
 
     result = db.Column(db.String(20), default="unknown")
     detail = db.Column(db.Text, default="")
-    checked_at = db.Column(db.DateTime, default=datetime.utcnow)
+    checked_at = db.Column(db.DateTime, default=utcnow)
 
     product = db.relationship("Product")
     version = db.relationship("ReferenceVersion")
@@ -237,7 +268,7 @@ class Activity(db.Model):
     type = db.Column(db.String(30), default="note")
     subject = db.Column(db.String(500), default="")
     body = db.Column(db.Text, default="")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     user = db.relationship("User")
     contact = db.relationship("Contact")
@@ -253,7 +284,7 @@ class Task(db.Model):
     title = db.Column(db.String(500), nullable=False)
     due_date = db.Column(db.Date, nullable=True)
     status = db.Column(db.String(20), default="open")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     @property
     def is_overdue(self):
@@ -276,8 +307,8 @@ class Deal(db.Model):
     analyst_phone = db.Column(db.String(100), default="")
     comment = db.Column(db.Text, default="")
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
     product = db.relationship("Product")
     status_logs = db.relationship(
@@ -310,7 +341,7 @@ class DealStatusLog(db.Model):
     old_status = db.Column(db.String(40), default="")
     new_status = db.Column(db.String(40), default="")
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     company = db.relationship("Company")
     user = db.relationship("User")
@@ -324,7 +355,7 @@ class MailTemplate(db.Model):
     subject = db.Column(db.String(500), default="")
     body = db.Column(db.Text, default="")
     is_default = db.Column(db.Boolean, default=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
     attachments = db.relationship(
         "TemplateAttachment", backref="template", lazy="select",
@@ -347,7 +378,7 @@ class TemplateAttachment(db.Model):
     # размер в байтах
     file_size = db.Column(db.Integer, default=0)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     @property
     def path(self):

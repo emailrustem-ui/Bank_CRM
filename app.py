@@ -1,5 +1,7 @@
 import io
 import json
+import logging
+import os
 import re
 import threading
 import time
@@ -27,7 +29,7 @@ from models import (
     DEFAULT_TEMPLATE_BODY, DEFAULT_TEMPLATE_SUBJECT,
     Activity, Company, CompanyOkved, Contact, Deal, DealStatusLog,
     MailTemplate, OkvedCheck, OkvedRule, Product, ReferenceVersion,
-    Task, TemplateAttachment, User, db,
+    Task, TemplateAttachment, User, db, utcnow, validate_inn,
 )
 from services import okved as okved_service
 from services.checko import CheckoError, apply_scraped_data, scrape_company
@@ -42,6 +44,13 @@ for folder in (DATA_DIR, REFERENCES_DIR, Config.ATTACHMENTS_DIR,
 
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# Логирование: консоль + data/crm.log с ротацией
+try:
+    from logging_conf import setup_logging
+    log = setup_logging()
+except ImportError:  # если модуль недоступен — стандартный логгер
+    log = logging.getLogger("crm")
 
 db.init_app(app)
 csrf = CSRFProtect(app)
@@ -65,7 +74,7 @@ def inject_globals():
         "activity_types": ACTIVITY_TYPES,
         "check_results": CHECK_RESULTS,
         "deal_statuses": DEAL_STATUSES,
-        "now": datetime.utcnow(),
+        "now": utcnow(),
     }
 
 
@@ -132,13 +141,22 @@ def _template_attachment_paths(template):
 
 JOBS = {}
 JOBS_LOCK = threading.Lock()
+JOBS_TTL = timedelta(hours=24)  # завершённые задачи хранятся сутки
 
 
 def _job_update(job_id, **kwargs):
     with JOBS_LOCK:
+        # очистка старых завершённых задач (TTL), чтобы словарь не рос бесконечно
+        cutoff = utcnow() - JOBS_TTL
+        stale = [jid for jid, j in JOBS.items()
+                 if j.get("status") in ("done", "error")
+                 and j.get("updated_at", cutoff.replace(microsecond=0)) < cutoff]
+        for jid in stale:
+            JOBS.pop(jid, None)
+
         job = JOBS.setdefault(job_id, {})
         job.update(kwargs)
-        job["updated_at"] = datetime.utcnow()
+        job["updated_at"] = utcnow()
 
 
 def _job_get(job_id):
@@ -216,6 +234,22 @@ def _fetch_worker(job_id, inn, user_id, company_id=None):
 # ИНИЦИАЛИЗАЦИЯ
 # ============================================================
 
+def _ensure_column(table, column, ddl):
+    """Добавляет колонку в существующую SQLite-таблицу, если её нет."""
+    from sqlalchemy import text as sa_text
+
+    try:
+        rows = db.session.execute(sa_text(f"PRAGMA table_info({table})")).fetchall()
+        columns = {row[1] for row in rows}
+        if columns and column not in columns:
+            db.session.execute(sa_text(f"ALTER TABLE {table} ADD COLUMN {ddl}"))
+            db.session.commit()
+            log.info("Миграция: добавлена колонка %s.%s", table, column)
+    except Exception as exc:
+        db.session.rollback()
+        log.error("Миграция %s.%s не удалась: %s", table, column, exc)
+
+
 def _ensure_company_extra_column():
     from sqlalchemy import text as sa_text
 
@@ -227,19 +261,35 @@ def _ensure_company_extra_column():
                 sa_text("ALTER TABLE companies ADD COLUMN extra TEXT DEFAULT ''")
             )
             db.session.commit()
-    except Exception:
+    except Exception as exc:
         db.session.rollback()
+        log.error("Не удалось добавить колонку companies.extra: %s", exc)
 
 
 def init_database():
     with app.app_context():
         db.create_all()
         _ensure_company_extra_column()
+        _ensure_column("users", "must_change_password", "must_change_password BOOLEAN DEFAULT 0")
+        _ensure_column("users", "role", "role VARCHAR(20) DEFAULT 'manager'")
 
         if not User.query.first():
-            user = User(username="manager", full_name="Клиентский менеджер", is_enabled=True)
-            user.set_password("manager")
+            import secrets as _secrets
+            default_password = os.getenv("CRM_DEFAULT_PASSWORD", "").strip()
+            generated = not default_password
+            if generated:
+                # Если пароль не задан в CRM_DEFAULT_PASSWORD — генерируем случайный
+                default_password = _secrets.token_urlsafe(12)
+            user = User(username="manager", full_name="Клиентский менеджер",
+                        is_enabled=True, must_change_password=True)
+            user.set_password(default_password)
             db.session.add(user)
+            if generated:
+                # Случайный пароль показываем ОДИН раз при создании БД
+                print("Создан пользователь 'manager'. Временный пароль (смените при входе): "
+                      + default_password)
+            else:
+                print("Создан пользователь 'manager' (пароль из CRM_DEFAULT_PASSWORD).")
 
         if not MailTemplate.query.first():
             db.session.add(MailTemplate(
@@ -256,26 +306,64 @@ def init_database():
 # АВТОРИЗАЦИЯ И ЛИЧНЫЙ КАБИНЕТ
 # ============================================================
 
+# Простой rate-limit логина по IP (без внешних зависимостей):
+# не более LOGIN_MAX_ATTEMPTS неудачных попыток за LOGIN_WINDOW_SECONDS.
+LOGIN_MAX_ATTEMPTS = 10
+LOGIN_WINDOW_SECONDS = 300
+_login_attempts = {}  # ip -> [timestamps]
+_login_lock = threading.Lock()
+
+
+def _login_rate_limited(ip):
+    now = time.monotonic()
+    with _login_lock:
+        attempts = [t for t in _login_attempts.get(ip, [])
+                    if now - t < LOGIN_WINDOW_SECONDS]
+        _login_attempts[ip] = attempts
+        return len(attempts) >= LOGIN_MAX_ATTEMPTS
+
+
+def _login_record_failure(ip):
+    with _login_lock:
+        _login_attempts.setdefault(ip, []).append(time.monotonic())
+
+
+def _login_clear(ip):
+    with _login_lock:
+        _login_attempts.pop(ip, None)
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for("dashboard"))
 
     if request.method == "POST":
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "?").split(",")[0].strip()
+        if _login_rate_limited(ip):
+            log.warning("Login rate limit exceeded for IP %s", ip)
+            flash("Слишком много неудачных попыток. Подождите 5 минут.", "danger")
+            return render_template("login.html"), 429
+
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
 
         user = User.query.filter_by(username=username).first()
         if user and user.is_enabled and user.check_password(password):
+            _login_clear(ip)
             login_user(user)
+            if getattr(user, "must_change_password", False):
+                return redirect(url_for("profile"))
             return redirect(url_for("dashboard"))
 
+        _login_record_failure(ip)
+        log.info("Неудачная попытка входа: username=%r ip=%s", username, ip)
         flash("Неверный логин или пароль.", "danger")
 
     return render_template("login.html")
 
 
-@app.route("/logout")
+@app.route("/logout", methods=["POST"])
 @login_required
 def logout():
     logout_user()
@@ -300,13 +388,17 @@ def profile():
 
             if not current_user.check_password(current_password):
                 flash("Текущий пароль указан неверно.", "danger")
-            elif len(new_password) < 6:
-                flash("Новый пароль должен быть не короче 6 символов.", "danger")
+            elif len(new_password) < 8:
+                flash("Новый пароль должен быть не короче 8 символов.", "danger")
+            elif new_password == current_password:
+                flash("Новый пароль не должен совпадать с текущим.", "danger")
             elif new_password != confirm_password:
                 flash("Новый пароль и подтверждение не совпадают.", "danger")
             else:
                 current_user.set_password(new_password)
+                current_user.must_change_password = False
                 db.session.commit()
+                log.info("Пароль изменён пользователем %s", current_user.username)
                 flash("Пароль изменён.", "success")
 
         return redirect(url_for("profile"))
@@ -504,10 +596,10 @@ def company_detail(company_id):
         MailTemplate.is_default.desc(), MailTemplate.name).all()
     version = ReferenceVersion.query.filter_by(is_active=True).first()
 
-    extra_data = {}
     try:
         extra_data = json.loads(company.extra or "{}") or {}
-    except Exception:
+    except (ValueError, TypeError):
+        log.warning("Компания %s: поле extra содержит некорректный JSON", company.inn)
         extra_data = {}
 
     return render_template(
@@ -1106,7 +1198,7 @@ def product_upload():
         return redirect(url_for("products_page"))
 
     filename = secure_filename(file.filename) or "okved_reference.xlsx"
-    saved_name = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{filename}"
+    saved_name = f"{utcnow().strftime('%Y%m%d_%H%M%S')}_{filename}"
     saved_path = REFERENCES_DIR / saved_name
     file.save(saved_path)
 
@@ -1494,7 +1586,7 @@ def open_browser_delayed(delay=1.5):
         try:
             webbrowser.open(Config.APP_URL)
         except Exception as exc:
-            print(f"Не удалось открыть браузер: {exc}")
+            log.error("Не удалось открыть браузер: %s", exc)
 
     threading.Thread(target=_worker, daemon=True).start()
 
@@ -1526,7 +1618,7 @@ def templates_page():
                 filename = secure_filename(file.filename)
                 if filename:
                     # Уникальное имя файла
-                    unique_name = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{filename}"
+                    unique_name = f"{utcnow().strftime('%Y%m%d%H%M%S')}_{filename}"
                     save_path = Path(Config.ATTACHMENTS_DIR) / unique_name
                     
                     # Если шаблон новый, у него еще нет ID, нужно сделать flush
@@ -1583,8 +1675,8 @@ def template_delete(template_id):
             p = Path(Config.ATTACHMENTS_DIR) / att.filename
             if p.exists():
                 p.unlink()
-        except Exception:
-            pass
+        except OSError as exc:
+            log.warning("Не удалось удалить файл %s: %s", att.filename, exc)
             
     db.session.delete(template)
     db.session.commit()
@@ -1605,8 +1697,8 @@ def template_attachment_delete(template_id, att_id):
         p = Path(Config.ATTACHMENTS_DIR) / att.filename
         if p.exists():
             p.unlink()
-    except Exception:
-        pass
+    except OSError as exc:
+        log.warning("Не удалось удалить файл %s: %s", att.filename, exc)
         
     db.session.delete(att)
     db.session.commit()
