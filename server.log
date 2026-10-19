@@ -1,0 +1,12 @@
+CRM_SECRET_KEY не задан — используется временный ключ. Сессии сбрасываются при каждом запуске. Для постоянной работы добавьте ключ в .env (файл .env в git не попадает).
+============================================================
+CRM клиентского менеджера банка
+Адрес: http://127.0.0.1:5000/
+============================================================
+ * Serving Flask app 'app'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [19/Oct/2026 03:53:59] "[32mGET / HTTP/1.1[0m" 302 -
+127.0.0.1 - - [19/Oct/2026 03:53:59] "GET /login HTTP/1.1" 200 -

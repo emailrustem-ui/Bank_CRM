@@ -1767,7 +1767,6 @@ if __name__ == "__main__":
     print("=" * 60)
     print("CRM клиентского менеджера банка")
     print(f"Адрес: {Config.APP_URL}")
-    print("Логин: manager   Пароль: manager")
     if Config.AUTO_OPEN_BROWSER:
         print("Браузер откроется автоматически…")
     print("=" * 60)
@@ -1775,4 +1774,6 @@ if __name__ == "__main__":
     if Config.AUTO_OPEN_BROWSER:
         open_browser_delayed(1.5)
 
-    app.run(host="127.0.0.1", port=5000, debug=True, use_reloader=False)
+    # debug включается только явным CRM_DEBUG=1 (небезопасно для продакшена)
+    debug_mode = os.getenv("CRM_DEBUG", "0") == "1"
+    app.run(host="127.0.0.1", port=5000, debug=debug_mode, use_reloader=False)
