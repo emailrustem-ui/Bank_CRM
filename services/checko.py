@@ -9,6 +9,7 @@ from pathlib import Path
 from config import Config, SNAPSHOTS_DIR
 from models import db, utcnow, Company, CompanyOkved, Contact
 from services import card_extra
+from services.phones import normalize_phone_field
 
 _DRIVER_LOCK = threading.Lock()
 _LAST_FETCH = [0.0]
@@ -643,7 +644,7 @@ def _clean_address(value):
 
 
 def _split_list(value, limit=10):
-    parts = re.split(r"[;,\s]+", str(value or ""))
+    parts = re.split(r"[;,]+", str(value or ""))
     result = []
     for part in parts:
         part = part.strip()
@@ -653,10 +654,14 @@ def _split_list(value, limit=10):
 
 
 def _join_phones(phones):
-    """Канонический вид строки телефонов: номера через '; '."""
-    from services.phones import join_phones
+    """Канонический вид строки телефонов: номера через '; '.
 
-    return join_phones(phones)
+    Прогоняем через нормализатор — он чинит «разрезанные» номера вида
+    "+7; 384; 277-62-22" (код страны/региона отдельными частями).
+    """
+    from services.phones import join_phones, normalize_phone_field
+
+    return normalize_phone_field(join_phones(phones))
 
 
 def _is_error_page(text):
@@ -1257,6 +1262,13 @@ def apply_scraped_data(company, data):
                 phone=phones_joined,
                 is_primary=True,
             ))
+
+    # Нормализуем телефоны у всех контактов компании (чинит старые записи,
+    # где код страны/региона были «разрезаны» точкой с запятой).
+    for contact in Contact.query.filter_by(company_id=company.id).all():
+        fixed = normalize_phone_field(contact.phone or "")[:300]
+        if fixed and fixed != (contact.phone or ""):
+            contact.phone = fixed
 
     db.session.flush()
     return company

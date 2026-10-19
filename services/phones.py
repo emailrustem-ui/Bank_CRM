@@ -19,24 +19,67 @@ _SPLIT_RX = re.compile(
 # скобками, пробелами, дефисами и точками внутри.
 _PHONE_RX = re.compile(r"(?:\+7|8)?[\s(]*7?[\s().\-]*\d[\d\s().\-]{8,18}\d")
 
+_DIGITS_RX = re.compile(r"\d")
+
+
+def _looks_like_phone(part):
+    """Похож ли фрагмент на полноценный номер (>=10 цифр)."""
+    return len(_DIGITS_RX.findall(part)) >= 10
+
+
+def _reassemble(parts):
+    """Собрать «разрезанные» номера обратно.
+
+    Например, '+7; 384; 277-62-22' — это один номер, где код страны,
+    код региона и сам номер были ошибочно разделены точкой с запятой.
+    Жадная склейка соседних частей: держим буфер, пока в нём не наберётся
+    полноценный номер (10–11 цифр); лишние цифры = следующий номер.
+    """
+    result = []
+    buf = ""
+    for part in parts:
+        candidate = f"{buf} {part}".strip() if buf else part
+        digits = len(_DIGITS_RX.findall(candidate))
+        if digits > 11 and buf:
+            # Буфер уже был полноценным номером — часть относится к следующему
+            result.append(buf)
+            buf = part
+        elif digits >= 10:
+            result.append(candidate)
+            buf = ""
+        else:
+            buf = candidate
+    if buf:
+        result.append(buf)
+    return result
+
 
 def split_phones(value):
     """Разбить строку на список отдельных номеров."""
     text = str(value or "").strip()
     if not text:
         return []
-    parts = [p.strip(" \t.;,-") for p in _SPLIT_RX.split(text)]
+    raw_parts = [p.strip(" \t.;,-") for p in _SPLIT_RX.split(text)]
+    parts = [p for p in raw_parts if p]
+    if not parts:
+        return []
+
+    # Если хотя бы одна часть похожа на «обрывок» номера (мало цифр),
+    # пробуем восстановить исходные номера склейкой соседних частей.
+    if any(not _looks_like_phone(p) for p in parts):
+        candidates = _reassemble(parts)
+    else:
+        candidates = parts
+
     result = []
-    for part in parts:
-        if not part:
-            continue
-        # Если часть содержит несколько склеенных номеров — разбиваем по паттерну
-        matches = _PHONE_RX.findall(part)
-        candidates = matches if len(matches) > 1 else [part]
-        for cand in candidates:
-            cand = cand.strip()
-            if cand and cand not in result:
-                result.append(cand)
+    for cand in candidates:
+        # Внутри части может быть несколько склеенных номеров
+        matches = _PHONE_RX.findall(cand)
+        sub = matches if len(matches) > 1 else [cand]
+        for item in sub:
+            item = item.strip()
+            if item and item not in result:
+                result.append(item)
     return result
 
 
