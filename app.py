@@ -172,13 +172,52 @@ def _job_get(job_id):
         return dict(job) if job else None
 
 
+@app.route("/jobs/<job_id>")
+@login_required
+def job_status(job_id):
+    """Статус фоновой задачи (используется опросчиком на странице загрузки)."""
+    job = _job_get(job_id)
+    if not job:
+        return jsonify({
+            "status": "error",
+            "progress": 100,
+            "message": "Задача не найдена. Возможно, сервер был перезапущен.",
+            "error": "Задача не найдена. Возможно, сервер был перезапущен.",
+        })
+    payload = {
+        "status": job.get("status", "running"),
+        "progress": job.get("progress", 0),
+        "message": job.get("message", ""),
+    }
+    if job.get("company_id"):
+        payload["company_id"] = job["company_id"]
+    if job.get("error"):
+        payload["error"] = job["error"]
+    return jsonify(payload)
+
+
 def _fetch_worker(job_id, inn, user_id, company_id=None):
+    is_refresh = company_id is not None
+    action_word = "обновления" if is_refresh else "создания"
     with app.app_context():
         try:
             _job_update(job_id, status="running", progress=10,
                         message="Запускаю загрузку данных…")
 
             data = scrape_company(inn, log=lambda msg: _job_update(job_id, message=msg))
+
+            # Проверка результата парсинга: если источник вернул пустую/битую
+            # страницу, не сохраняем её поверх существующей карточки.
+            meaningful = any(
+                str(data.get(key) or "").strip()
+                for key in ("name", "short_name", "ogrn", "director", "address", "phone", "email")
+            ) or bool(data.get("okved_main") or data.get("okved_additional"))
+
+            if not meaningful:
+                raise CheckoError(
+                    "Источник данных не вернул содержательных сведений по ИНН. "
+                    "Карточка не изменена — повторите попытку через минуту."
+                )
 
             _job_update(job_id, progress=65, message="Сохраняю карточку компании…")
 
@@ -217,7 +256,7 @@ def _fetch_worker(job_id, inn, user_id, company_id=None):
                 company_id=company.id,
                 user_id=user_id,
                 type="note",
-                subject="Загрузка данных компании",
+                subject="Данные компании обновлены" if is_refresh else "Загрузка данных компании",
                 body=(
                     f"Получены данные по ИНН {inn}. "
                     f"ОКВЭД: {len(company.okveds)} шт. "
@@ -226,14 +265,21 @@ def _fetch_worker(job_id, inn, user_id, company_id=None):
             ))
             db.session.commit()
 
-            _job_update(job_id, status="done", progress=100,
-                        message="Готово. Компания создана и проверена по продуктам.",
-                        company_id=company.id)
+            _job_update(
+                job_id, status="done", progress=100,
+                message=("Готово. Данные обновлены, проверка ОКВЭД пересчитана."
+                         if is_refresh else
+                         "Готово. Компания создана и проверена по продуктам."),
+                company_id=company.id,
+            )
 
         except Exception as exc:
             db.session.rollback()
+            log.exception("Фоновая задача %s (%s по ИНН %s) завершилась ошибкой",
+                          job_id, action_word, inn)
             _job_update(job_id, status="error", progress=100,
-                        message="Не удалось загрузить компанию.", error=str(exc))
+                        message=f"Не удалось выполнить {action_word} компании.",
+                        error=str(exc), company_id=company_id)
 
 
 # ============================================================

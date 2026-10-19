@@ -162,7 +162,12 @@ function pollJob(jobId, fallbackUrl) {
         if (stopped) return;
 
         fetch("/jobs/" + jobId, { credentials: "same-origin" })
-            .then(function (response) { return response.json(); })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error("HTTP " + response.status);
+                }
+                return response.json();
+            })
             .then(function (job) {
                 if (bar) bar.style.width = (job.progress || 0) + "%";
                 if (message) message.textContent = job.message || "";
@@ -174,7 +179,11 @@ function pollJob(jobId, fallbackUrl) {
                     if (icon) icon.textContent = "✅";
 
                     setTimeout(function () {
-                        window.location.href = "/company/" + job.company_id + "?tab=okved";
+                        if (job.company_id) {
+                            window.location.href = "/company/" + job.company_id + "?tab=okved";
+                        } else {
+                            window.location.href = fallbackUrl;
+                        }
                     }, 900);
                     return;
                 }
@@ -188,12 +197,22 @@ function pollJob(jobId, fallbackUrl) {
                         errorBox.style.display = "flex";
                         errorBox.textContent = job.error || "Неизвестная ошибка.";
                     }
+                    // даём ссылку на карточку, чтобы вернуться к существующей компании
+                    if (job.company_id) {
+                        var backLink = document.getElementById("fetchBackLink");
+                        if (backLink) {
+                            backLink.href = "/company/" + job.company_id;
+                            backLink.textContent = "Открыть карточку компании";
+                            backLink.style.display = "inline-block";
+                        }
+                    }
                     return;
                 }
 
                 setTimeout(tick, 1800);
             })
-            .catch(function () {
+            .catch(function (err) {
+                console.warn("pollJob:", err);
                 setTimeout(tick, 3000);
             });
     }
