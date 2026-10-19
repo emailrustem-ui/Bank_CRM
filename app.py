@@ -197,6 +197,7 @@ def job_status(job_id):
 
 
 def _fetch_worker(job_id, inn, user_id, company_id=None):
+    _job_update(job_id, kind="fetch", job_id=job_id)
     is_refresh = company_id is not None
     action_word = "обновления" if is_refresh else "создания"
     with app.app_context():
@@ -725,6 +726,13 @@ def company_delete(company_id):
 @login_required
 def company_refresh(company_id):
     company = db.get_or_404(Company, company_id)
+
+    # не запускать второе обновление, пока первое ещё в работе
+    for j in JOBS.values():
+        if (j.get("status") == "running" and j.get("kind") == "fetch"
+                and j.get("company_id") == company.id):
+            flash("Обновление этой компании уже выполняется — дождитесь завершения.", "warning")
+            return redirect(url_for("company_new", job=j.get("job_id")))
 
     job_id = uuid.uuid4().hex
     _job_update(job_id, status="running", progress=0, message="Запускаю обновление…")
