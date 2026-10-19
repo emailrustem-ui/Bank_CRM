@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from config import Config, SNAPSHOTS_DIR
-from models import db, Company, CompanyOkved, Contact
+from models import db, utcnow, Company, CompanyOkved, Contact
 from services import card_extra
 
 _DRIVER_LOCK = threading.Lock()
@@ -832,7 +832,7 @@ def _save_snapshot(inn, url, data=None, page_text="", error=""):
         SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
         payload = {
             "inn": inn,
-            "fetched_at": datetime.utcnow().isoformat(),
+            "fetched_at": utcnow().isoformat(),
             "url": url,
             "error": error,
             "data": data,
@@ -1213,7 +1213,7 @@ def apply_scraped_data(company, data):
         ))
 
     company.source = "auto"
-    company.checko_updated_at = datetime.utcnow()
+    company.checko_updated_at = utcnow()
 
     director = (data.get("director") or "").strip()
     phones_joined = "; ".join(phones_list)
