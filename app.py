@@ -33,6 +33,7 @@ from models import (
 )
 from services import okved as okved_service
 from services.checko import CheckoError, apply_scraped_data, scrape_company
+from services.phones import normalize_phone_field, tel_href
 from services.mail import (
     build_greeting, mailto_link, prepare_email, try_open_outlook,
 )
@@ -87,6 +88,12 @@ def money_filter(value):
     if not amount:
         return "—"
     return f"{amount:,.0f}".replace(",", " ") + " руб."
+
+
+@app.template_filter("telhref")
+def telhref_filter(value):
+    """Ссылка tel: из первого номера строки телефонов ('т1; т2' -> 'tel:+7...')."""
+    return tel_href(value)
 
 
 def _parse_amount(raw):
@@ -173,13 +180,77 @@ def job_status(job_id):
         return jsonify({"error": "Задача не найдена"}), 404
     return jsonify(job)
 
+@app.route("/jobs/<job_id>")
+@login_required
+def job_status(job_id):
+    """Статус фоновой задачи (используется опросчиком на странице загрузки)."""
+    job = _job_get(job_id)
+    if not job:
+        return jsonify({
+            "status": "error",
+            "progress": 100,
+            "message": "Задача не найдена. Возможно, сервер был перезапущен.",
+            "error": "Задача не найдена. Возможно, сервер был перезапущен.",
+        })
+    payload = {
+        "status": job.get("status", "running"),
+        "progress": job.get("progress", 0),
+        "message": job.get("message", ""),
+    }
+    if job.get("company_id"):
+        payload["company_id"] = job["company_id"]
+    if job.get("error"):
+        payload["error"] = job["error"]
+    return jsonify(payload)
+
+
+# Этапы загрузки: доля прогресса, приходящаяся на парсинг источника.
+# Пока идёт парсинг, прогресс плавно ползёт от FETCH_START_PROGRESS до
+# FETCH_END_PROGRESS по внутренним сообщениям логгера — иначе полоса стоит
+# на месте 30-60 секунд и кажется, что загрузка зависла.
+FETCH_START_PROGRESS = 8
+FETCH_END_PROGRESS = 62
+
+
+def _make_scrape_progress(job_id):
+    """Логгер для scrape_company: пишет сообщение и поднимает прогресс."""
+    state = {"p": FETCH_START_PROGRESS}
+
+    def log(msg):
+        # плавный рост без возврата назад (асимптотически к FETCH_END_PROGRESS)
+        state["p"] = min(FETCH_END_PROGRESS, state["p"] + 4)
+        _job_update(job_id, status="running", progress=state["p"], message=str(msg))
+
+    return log
+
+
 def _fetch_worker(job_id, inn, user_id, company_id=None):
+    _job_update(job_id, kind="fetch", job_id=job_id)
+    is_refresh = company_id is not None
+    action_word = "обновления" if is_refresh else "создания"
     with app.app_context():
         try:
-            _job_update(job_id, status="running", progress=10,
+            _job_update(job_id, status="running", progress=FETCH_START_PROGRESS,
                         message="Запускаю загрузку данных…")
 
-            data = scrape_company(inn, log=lambda msg: _job_update(job_id, message=msg))
+            data = scrape_company(
+                inn,
+                log=_make_scrape_progress(job_id),
+                heartbeat=lambda: _job_update(job_id, updated_at=utcnow()),
+            )
+
+            # Проверка результата парсинга: если источник вернул пустую/битую
+            # страницу, не сохраняем её поверх существующей карточки.
+            meaningful = any(
+                str(data.get(key) or "").strip()
+                for key in ("name", "short_name", "ogrn", "director", "address", "phone", "email")
+            ) or bool(data.get("okved_main") or data.get("okved_additional"))
+
+            if not meaningful:
+                raise CheckoError(
+                    "Источник данных не вернул содержательных сведений по ИНН. "
+                    "Карточка не изменена — повторите попытку через минуту."
+                )
 
             _job_update(job_id, progress=65, message="Сохраняю карточку компании…")
 
@@ -201,12 +272,11 @@ def _fetch_worker(job_id, inn, user_id, company_id=None):
             apply_scraped_data(company, data)
 
             # Нормализация телефонов: разделитель только ";"
-            raw_phones = str(data.get("phone") or "")
-            phone_parts = [p.strip() for p in raw_phones.split(";") if p.strip()]
-            if phone_parts:
-                company.phone = "; ".join(phone_parts)
+            phone_joined = normalize_phone_field(data.get("phone") or "")[:300]
+            if phone_joined:
+                company.phone = phone_joined
                 for contact in company.contacts:
-                    contact.phone = "; ".join(phone_parts)
+                    contact.phone = phone_joined
 
             db.session.commit()
 
@@ -219,7 +289,7 @@ def _fetch_worker(job_id, inn, user_id, company_id=None):
                 company_id=company.id,
                 user_id=user_id,
                 type="note",
-                subject="Загрузка данных компании",
+                subject="Данные компании обновлены" if is_refresh else "Загрузка данных компании",
                 body=(
                     f"Получены данные по ИНН {inn}. "
                     f"ОКВЭД: {len(company.okveds)} шт. "
@@ -228,14 +298,21 @@ def _fetch_worker(job_id, inn, user_id, company_id=None):
             ))
             db.session.commit()
 
-            _job_update(job_id, status="done", progress=100,
-                        message="Готово. Компания создана и проверена по продуктам.",
-                        company_id=company.id)
+            _job_update(
+                job_id, status="done", progress=100,
+                message=("Готово. Данные обновлены, проверка ОКВЭД пересчитана."
+                         if is_refresh else
+                         "Готово. Компания создана и проверена по продуктам."),
+                company_id=company.id,
+            )
 
         except Exception as exc:
             db.session.rollback()
+            log.exception("Фоновая задача %s (%s по ИНН %s) завершилась ошибкой",
+                          job_id, action_word, inn)
             _job_update(job_id, status="error", progress=100,
-                        message="Не удалось загрузить компанию.", error=str(exc))
+                        message=f"Не удалось выполнить {action_word} компании.",
+                        error=str(exc), company_id=company_id)
 
 
 # ============================================================
@@ -282,22 +359,15 @@ def init_database():
         _ensure_column("users", "role", "role VARCHAR(20) DEFAULT 'manager'")
 
         if not User.query.first():
-            import secrets as _secrets
-            default_password = os.getenv("CRM_DEFAULT_PASSWORD", "").strip()
-            generated = not default_password
-            if generated:
-                # Если пароль не задан в CRM_DEFAULT_PASSWORD — генерируем случайный
-                default_password = _secrets.token_urlsafe(12)
-            user = User(username="manager", full_name="Клиентский менеджер",
-                        is_enabled=True, must_change_password=True)
+            # Первый запуск: логин/пароль по умолчанию — "1"/"1".
+            # Логин всегда остаётся "1"; пароль можно переопределить через
+            # CRM_DEFAULT_PASSWORD (например, для установки без пароля "1").
+            default_password = os.getenv("CRM_DEFAULT_PASSWORD", "").strip() or "1"
+            user = User(username="1", full_name="Клиентский менеджер",
+                        is_enabled=True, must_change_password=False)
             user.set_password(default_password)
             db.session.add(user)
-            if generated:
-                # Случайный пароль показываем ОДИН раз при создании БД
-                print("Создан пользователь 'manager'. Временный пароль (смените при входе): "
-                      + default_password)
-            else:
-                print("Создан пользователь 'manager' (пароль из CRM_DEFAULT_PASSWORD).")
+            print("Создан пользователь по умолчанию. Логин: 1   Пароль: 1")
 
         if not MailTemplate.query.first():
             db.session.add(MailTemplate(
@@ -635,7 +705,11 @@ def company_edit(company_id):
 
     for field, limit in fields.items():
         if field in request.form:
-            setattr(company, field, request.form.get(field, "").strip()[:limit])
+            value = request.form.get(field, "").strip()[:limit]
+            if field == "phone":
+                # Телефоны храним строго через ";"
+                value = normalize_phone_field(value)[:limit]
+            setattr(company, field, value)
 
     if request.form.get("status") in COMPANY_STATUSES:
         company.status = request.form["status"]
@@ -677,6 +751,13 @@ def company_delete(company_id):
 @login_required
 def company_refresh(company_id):
     company = db.get_or_404(Company, company_id)
+
+    # не запускать второе обновление, пока первое ещё в работе
+    for j in JOBS.values():
+        if (j.get("status") == "running" and j.get("kind") == "fetch"
+                and j.get("company_id") == company.id):
+            flash("Обновление этой компании уже выполняется — дождитесь завершения.", "warning")
+            return redirect(url_for("company_new", job=j.get("job_id")))
 
     job_id = uuid.uuid4().hex
     _job_update(job_id, status="running", progress=0, message="Запускаю обновление…")
@@ -787,7 +868,7 @@ def contact_save(company_id):
 
     contact.full_name = request.form.get("full_name", "").strip()[:300]
     contact.position = request.form.get("position", "").strip()[:200]
-    contact.phone = request.form.get("phone", "").strip()[:300]
+    contact.phone = normalize_phone_field(request.form.get("phone", ""))[:300]
     contact.email = request.form.get("email", "").strip()[:300]
     contact.is_primary = request.form.get("is_primary") == "on"
 
@@ -1719,7 +1800,6 @@ if __name__ == "__main__":
     print("=" * 60)
     print("CRM клиентского менеджера банка")
     print(f"Адрес: {Config.APP_URL}")
-    print("Логин: manager   Пароль: manager")
     if Config.AUTO_OPEN_BROWSER:
         print("Браузер откроется автоматически…")
     print("=" * 60)
@@ -1727,4 +1807,6 @@ if __name__ == "__main__":
     if Config.AUTO_OPEN_BROWSER:
         open_browser_delayed(1.5)
 
-    app.run(host="127.0.0.1", port=5000, debug=True, use_reloader=False)
+    # debug включается только явным CRM_DEBUG=1 (небезопасно для продакшена)
+    debug_mode = os.getenv("CRM_DEBUG", "0") == "1"
+    app.run(host="127.0.0.1", port=5000, debug=debug_mode, use_reloader=False)

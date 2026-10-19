@@ -13,15 +13,15 @@
         <div class="progress">
             <div class="progress-bar" id="progressBar" style="width: {{ job.progress }}%"></div>
         </div>
+        <p class="muted small mt-2" id="fetchElapsed">Прошло времени: 0 мин 0 с</p>
 
-        <div class="fetch-log small muted" id="fetchLog">
-            Идёт загрузка данных из внешнего источника…
-        </div>
+        <div class="fetch-log small muted" id="fetchLog"></div>
 
         <div id="fetchError" class="flash flash-danger mt-4" style="display:none"></div>
 
         <div class="mt-4">
             <a href="{{ url_for('companies') }}" class="btn btn-ghost">В список компаний</a>
+            <a id="fetchBackLink" href="#" class="btn btn-outline" style="display:none">Открыть карточку компании</a>
         </div>
     </div>
 </div>
