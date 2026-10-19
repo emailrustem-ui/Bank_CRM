@@ -196,16 +196,40 @@ def job_status(job_id):
     return jsonify(payload)
 
 
+# Этапы загрузки: доля прогресса, приходящаяся на парсинг источника.
+# Пока идёт парсинг, прогресс плавно ползёт от FETCH_START_PROGRESS до
+# FETCH_END_PROGRESS по внутренним сообщениям логгера — иначе полоса стоит
+# на месте 30-60 секунд и кажется, что загрузка зависла.
+FETCH_START_PROGRESS = 8
+FETCH_END_PROGRESS = 62
+
+
+def _make_scrape_progress(job_id):
+    """Логгер для scrape_company: пишет сообщение и поднимает прогресс."""
+    state = {"p": FETCH_START_PROGRESS}
+
+    def log(msg):
+        # плавный рост без возврата назад (асимптотически к FETCH_END_PROGRESS)
+        state["p"] = min(FETCH_END_PROGRESS, state["p"] + 4)
+        _job_update(job_id, status="running", progress=state["p"], message=str(msg))
+
+    return log
+
+
 def _fetch_worker(job_id, inn, user_id, company_id=None):
     _job_update(job_id, kind="fetch", job_id=job_id)
     is_refresh = company_id is not None
     action_word = "обновления" if is_refresh else "создания"
     with app.app_context():
         try:
-            _job_update(job_id, status="running", progress=10,
+            _job_update(job_id, status="running", progress=FETCH_START_PROGRESS,
                         message="Запускаю загрузку данных…")
 
-            data = scrape_company(inn, log=lambda msg: _job_update(job_id, message=msg))
+            data = scrape_company(
+                inn,
+                log=_make_scrape_progress(job_id),
+                heartbeat=lambda: _job_update(job_id, updated_at=utcnow()),
+            )
 
             # Проверка результата парсинга: если источник вернул пустую/битую
             # страницу, не сохраняем её поверх существующей карточки.

@@ -80,8 +80,24 @@ def _log(log, message):
             pass
 
 
-def _delay():
-    time.sleep(random.uniform(MIN_DELAY, MAX_DELAY))
+def _delay(heartbeat=None):
+    """Пауза между обращениями к источнику.
+
+    Спит короткими шагами и дёргает heartbeat — так страница прогресса
+    видит, что задача жива, даже на длинных паузах.
+    """
+    total = random.uniform(MIN_DELAY, MAX_DELAY)
+    step = 0.5
+    slept = 0.0
+    while slept < total:
+        chunk = min(step, total - slept)
+        time.sleep(chunk)
+        slept += chunk
+        if heartbeat:
+            try:
+                heartbeat()
+            except Exception:
+                pass
 
 
 # ============================================================
@@ -862,7 +878,7 @@ def _save_snapshot(inn, url, data=None, page_text="", error=""):
 # СБОР ДАННЫХ ПО ОДНОЙ КОМПАНИИ
 # ============================================================
 
-def scrape_company(inn, log=None):
+def scrape_company(inn, log=None, heartbeat=None):
     inn = re.sub(r"\D", "", str(inn or ""))
     if len(inn) not in (10, 12):
         raise CheckoError("ИНН должен содержать 10 или 12 цифр.")
@@ -874,7 +890,17 @@ def scrape_company(inn, log=None):
         if elapsed < Config.CHECKO_MIN_DELAY:
             wait_sec = Config.CHECKO_MIN_DELAY - elapsed
             _log(log, f"[i] пауза между запросами {int(wait_sec)} с.…")
-            time.sleep(wait_sec)
+            # спим шагами по 0.5 с и держим heartbeat, чтобы страница
+            # прогресса показывала живой статус задачи, а не «зависание»
+            steps = int(wait_sec // 0.5)
+            for i in range(steps):
+                time.sleep(0.5)
+                if heartbeat and i % 4 == 3:
+                    try:
+                        heartbeat()
+                    except Exception:
+                        pass
+            time.sleep(wait_sec - steps * 0.5)
 
         _LAST_FETCH[0] = time.time()
 
@@ -904,7 +930,7 @@ def scrape_company(inn, log=None):
                     "Повторите попытку через минуту."
                 )
 
-            _delay()
+            _delay(heartbeat)
 
             page_text = _page_text(driver)
             lower = page_text.lower()
@@ -1011,7 +1037,7 @@ def scrape_company(inn, log=None):
                 "extra": {},
             }
 
-            _delay()
+            _delay(heartbeat)
             _log(log, "[i] извлекаю ОКВЭД…")
 
             main_item = _js(driver, JS_OKVED_MAIN)
@@ -1056,7 +1082,7 @@ def scrape_company(inn, log=None):
             if data["okved_main"] and JUNK_RX.search(data["okved_main"].get("title", "")):
                 data["okved_main"]["title"] = ""
 
-            _delay()
+            _delay(heartbeat)
             _log(log, "[i] извлекаю учредителей и численность…")
             data["founders"] = _js(driver, JS_FOUNDERS)
 

@@ -157,6 +157,31 @@ function pollJob(jobId, fallbackUrl) {
     const logBox = document.getElementById("fetchLog");
 
     let stopped = false;
+    let lastMessage = "";
+    let elapsedTimer = null;
+
+    function startElapsed() {
+        const started = Date.now();
+        const el = document.getElementById("fetchElapsed");
+        if (!el) return;
+        elapsedTimer = setInterval(function () {
+            const s = Math.floor((Date.now() - started) / 1000);
+            el.textContent = "Прошло времени: " + Math.floor(s / 60) + " мин " + (s % 60) + " с";
+        }, 1000);
+    }
+
+    function appendLog(message) {
+        if (!logBox || !message || message === lastMessage) return;
+        lastMessage = message;
+        const time = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        const row = document.createElement("div");
+        row.className = "fetch-log-row";
+        row.textContent = "[" + time + "] " + message;
+        logBox.appendChild(row);
+        // keeping the log box scrollable and not infinitely long
+        while (logBox.children.length > 50) logBox.removeChild(logBox.firstChild);
+        logBox.scrollTop = logBox.scrollHeight;
+    }
 
     function tick() {
         if (stopped) return;
@@ -171,10 +196,11 @@ function pollJob(jobId, fallbackUrl) {
             .then(function (job) {
                 if (bar) bar.style.width = (job.progress || 0) + "%";
                 if (message) message.textContent = job.message || "";
-                if (logBox && job.message) logBox.textContent = job.message;
+                appendLog(job.message);
 
                 if (job.status === "done") {
                     stopped = true;
+                    if (elapsedTimer) clearInterval(elapsedTimer);
                     if (title) title.textContent = "Компания готова";
                     if (icon) icon.textContent = "✅";
 
@@ -190,6 +216,7 @@ function pollJob(jobId, fallbackUrl) {
 
                 if (job.status === "error") {
                     stopped = true;
+                    if (elapsedTimer) clearInterval(elapsedTimer);
                     if (title) title.textContent = "Не удалось загрузить";
                     if (icon) icon.textContent = "⚠️";
 
@@ -217,5 +244,6 @@ function pollJob(jobId, fallbackUrl) {
             });
     }
 
-    setTimeout(tick, 1200);
+    startElapsed();
+    setTimeout(tick, 600);
 }

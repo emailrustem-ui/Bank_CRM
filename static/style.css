@@ -437,7 +437,11 @@ textarea { resize: vertical; line-height: 1.6; }
 .fetch-log {
     background: #f8fafc; border: 1px solid var(--border);
     padding: 12px 14px; border-radius: 8px; min-height: 50px;
+    max-height: 190px; overflow-y: auto;
+    font-family: ui-monospace, Consolas, monospace;
 }
+.fetch-log:empty { display: none; }
+.fetch-log-row { line-height: 1.55; }
 
 .flow-steps { display: flex; flex-direction: column; gap: 12px; }
 .flow-step { display: flex; align-items: center; gap: 11px; font-size: 13px; }
